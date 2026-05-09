@@ -193,6 +193,7 @@ describe("config resolution", () => {
     const jjRepo = createTempDir("hunk-config-jj-repo-");
     const colocatedRepo = createTempDir("hunk-config-colocated-repo-");
     const gitRepo = createTempDir("hunk-config-git-repo-");
+    const plainDir = createTempDir("hunk-config-no-repo-");
 
     createJjRepo(jjRepo);
     createRepo(colocatedRepo);
@@ -214,6 +215,9 @@ describe("config resolution", () => {
     ).toBe("jj");
     expect(
       resolveConfiguredCliInput(input, { cwd: gitRepo, env: { HOME: home } }).input.options.vcs,
+    ).toBe("git");
+    expect(
+      resolveConfiguredCliInput(input, { cwd: plainDir, env: { HOME: home } }).input.options.vcs,
     ).toBe("git");
   });
 
