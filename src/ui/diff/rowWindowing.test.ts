@@ -95,7 +95,7 @@ describe("resolveVisiblePlannedRowWindow", () => {
     ]);
   });
 
-  test("can collapse a fully offscreen file body into spacer height only", () => {
+  test("can collapse a fully offscreen file body above the viewport into top spacer height", () => {
     const plannedRows = ["row:0", "row:1"].map(createTestPlannedRow);
     const sectionGeometry = createTestSectionGeometry(
       [
@@ -109,6 +109,27 @@ describe("resolveVisiblePlannedRowWindow", () => {
       plannedRows,
       sectionGeometry,
       visibleBodyBounds: { top: 10, height: 2 },
+    });
+
+    expect(window.topSpacerHeight).toBe(4);
+    expect(window.bottomSpacerHeight).toBe(0);
+    expect(window.plannedRows).toHaveLength(0);
+  });
+
+  test("can collapse a fully offscreen file body below the viewport into bottom spacer height", () => {
+    const plannedRows = ["row:0", "row:1"].map(createTestPlannedRow);
+    const sectionGeometry = createTestSectionGeometry(
+      [
+        { key: "row:0", top: 0, height: 2 },
+        { key: "row:1", top: 2, height: 2 },
+      ],
+      4,
+    );
+
+    const window = resolveVisiblePlannedRowWindow({
+      plannedRows,
+      sectionGeometry,
+      visibleBodyBounds: { top: 0, height: 0 },
     });
 
     expect(window.topSpacerHeight).toBe(0);

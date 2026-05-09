@@ -67,10 +67,12 @@ export function resolveVisiblePlannedRowWindow({
   }
 
   if (firstVisibleIndex < 0 || lastVisibleIndex < 0) {
+    const topSpacerHeight = Math.min(sectionGeometry.bodyHeight, minVisibleTop);
+
     return {
-      bottomSpacerHeight: sectionGeometry.bodyHeight,
+      bottomSpacerHeight: Math.max(0, sectionGeometry.bodyHeight - topSpacerHeight),
       plannedRows: [],
-      topSpacerHeight: 0,
+      topSpacerHeight,
     };
   }
 

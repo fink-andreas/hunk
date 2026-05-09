@@ -386,9 +386,9 @@ export function DiffPane({
   );
 
   const visibleViewportFileIds = useMemo(() => {
-    const overscanRows = 8;
-    const minVisibleY = Math.max(0, scrollViewport.top - overscanRows);
-    const maxVisibleY = scrollViewport.top + scrollViewport.height + overscanRows;
+    const overscanTerminalRows = 8;
+    const minVisibleY = Math.max(0, scrollViewport.top - overscanTerminalRows);
+    const maxVisibleY = scrollViewport.top + scrollViewport.height + overscanTerminalRows;
     return collectIntersectingFileSectionIds(baseFileSectionLayouts, minVisibleY, maxVisibleY);
   }, [baseFileSectionLayouts, scrollViewport.height, scrollViewport.top]);
 
@@ -596,7 +596,7 @@ export function DiffPane({
       return next;
     }
 
-    const overscanRows = Math.max(24, scrollViewport.height * 2);
+    const overscanTerminalRows = Math.max(24, scrollViewport.height * 2);
 
     files.forEach((file, index) => {
       const sectionLayout = fileSectionLayouts[index];
@@ -613,9 +613,9 @@ export function DiffPane({
       // Convert the absolute review-stream viewport into file-body-local coordinates.
       // Example: if the viewport starts at row 2_000 globally and this file body starts at row
       // 1_940, then the file-local visible top is 60 rows into this file.
-      let minTop = scrollViewport.top - sectionLayout.bodyTop - overscanRows;
-      let maxBottom =
-        scrollViewport.top + scrollViewport.height - sectionLayout.bodyTop + overscanRows;
+      const minTop = scrollViewport.top - sectionLayout.bodyTop - overscanTerminalRows;
+      const maxBottom =
+        scrollViewport.top + scrollViewport.height - sectionLayout.bodyTop + overscanTerminalRows;
 
       // Keep the mounted rows bounded to the viewport slice. Selection reveal uses planned hunk
       // geometry as its fallback, so mounting an offscreen selected hunk is not necessary and would
