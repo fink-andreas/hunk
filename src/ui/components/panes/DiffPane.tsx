@@ -37,7 +37,7 @@ import { DiffSection } from "./DiffSection";
 import { DiffFileHeaderRow } from "./DiffFileHeaderRow";
 import { DiffSectionPlaceholder } from "./DiffSectionPlaceholder";
 import { VerticalScrollbar, type VerticalScrollbarHandle } from "../scrollbar/VerticalScrollbar";
-import { rowWindowingPocEnabled, type VisibleBodyBounds } from "../../diff/rowWindowing";
+import type { VisibleBodyBounds } from "../../diff/rowWindowing";
 import { prefetchHighlightedDiff } from "../../diff/useHighlightedDiff";
 
 const EMPTY_VISIBLE_AGENT_NOTES: VisibleAgentNote[] = [];
@@ -592,7 +592,7 @@ export function DiffPane({
   }, [adjacentPrefetchFileIds, selectedFileId, visibleViewportFileIds, windowingEnabled]);
   const visibleBodyBoundsByFile = useMemo(() => {
     const next = new Map<string, VisibleBodyBounds>();
-    if (!rowWindowingPocEnabled() || scrollViewport.height <= 0) {
+    if (scrollViewport.height <= 0) {
       return next;
     }
 

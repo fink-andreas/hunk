@@ -1,8 +1,6 @@
 import type { DiffSectionGeometry } from "../lib/diffSectionGeometry";
 import type { PlannedReviewRow } from "./reviewRenderPlan";
 
-const ROW_WINDOWING_POC_ENV = "HUNK_ROW_WINDOWING_POC";
-
 /** One visible slice within a file body, measured in file-local row units. */
 export interface VisibleBodyBounds {
   top: number;
@@ -13,11 +11,6 @@ export interface VisiblePlannedRowWindow {
   bottomSpacerHeight: number;
   plannedRows: PlannedReviewRow[];
   topSpacerHeight: number;
-}
-
-/** Opt-in gate for the row-windowing proof of concept while we validate behavior and gains. */
-export function rowWindowingPocEnabled(env: NodeJS.ProcessEnv = process.env) {
-  return env[ROW_WINDOWING_POC_ENV] === "1";
 }
 
 /**

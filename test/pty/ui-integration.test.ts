@@ -163,15 +163,12 @@ describe("live UI integration", () => {
     }
   });
 
-  test("row-windowing PTY sessions can navigate forward and backward between distant hunks", async () => {
+  test("PTY sessions can navigate forward and backward between distant hunks in one large file", async () => {
     const fixture = harness.createMultiHunkFilePair();
     const session = await harness.launchHunk({
       args: ["diff", fixture.before, fixture.after, "--mode", "split"],
       cols: 104,
       rows: 12,
-      env: {
-        HUNK_ROW_WINDOWING_POC: "1",
-      },
     });
 
     try {

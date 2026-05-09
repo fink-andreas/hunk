@@ -9,11 +9,7 @@ import { findMaxLineNumber } from "./codeColumns";
 import { buildSplitRows, buildStackRows } from "./pierre";
 import { plannedReviewRowVisible } from "./plannedReviewRows";
 import { buildReviewRenderPlan } from "./reviewRenderPlan";
-import {
-  resolveVisiblePlannedRowWindow,
-  rowWindowingPocEnabled,
-  type VisibleBodyBounds,
-} from "./rowWindowing";
+import { resolveVisiblePlannedRowWindow, type VisibleBodyBounds } from "./rowWindowing";
 import { diffMessage, DiffRowView, fitText } from "./renderRows";
 import { useHighlightedDiff } from "./useHighlightedDiff";
 
@@ -91,7 +87,7 @@ export function PierreDiffView({
     // - one file-local visible body slice from DiffPane
     // The helper relies on those structures staying in lockstep, so any missing input means
     // "render everything" instead of risking a mismatched partial slice.
-    if (!sectionGeometry || !visibleBodyBounds || !rowWindowingPocEnabled()) {
+    if (!sectionGeometry || !visibleBodyBounds) {
       return {
         bottomSpacerHeight: 0,
         plannedRows,

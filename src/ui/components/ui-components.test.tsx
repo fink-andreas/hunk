@@ -1001,10 +1001,7 @@ describe("UI components", () => {
     }
   });
 
-  test("DiffPane keeps a distant selected hunk visible when row windowing is enabled", async () => {
-    const previousRowWindowing = process.env.HUNK_ROW_WINDOWING_POC;
-    process.env.HUNK_ROW_WINDOWING_POC = "1";
-
+  test("DiffPane keeps a distant selected hunk visible when row windowing narrows one file body", async () => {
     const theme = resolveTheme("midnight", null);
     const props = createDiffPaneProps([createWideTwoHunkDiffFile("target", "target.ts")], theme, {
       diffContentWidth: 96,
@@ -1026,12 +1023,6 @@ describe("UI components", () => {
       expect(frame).toContain("line60 = 5901");
       expect(frame).not.toContain("line1 = 1001");
     } finally {
-      if (previousRowWindowing === undefined) {
-        delete process.env.HUNK_ROW_WINDOWING_POC;
-      } else {
-        process.env.HUNK_ROW_WINDOWING_POC = previousRowWindowing;
-      }
-
       await act(async () => {
         setup.renderer.destroy();
       });
