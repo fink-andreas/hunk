@@ -617,24 +617,13 @@ export function DiffPane({
       let maxBottom =
         scrollViewport.top + scrollViewport.height - sectionLayout.bodyTop + overscanRows;
 
-      if (file.id === selectedFileId) {
-        const selectedHunkBounds = geometry.hunkBounds.get(
-          Math.max(0, Math.min(selectedHunkIndex, file.metadata.hunks.length - 1)),
-        );
-        if (selectedHunkBounds) {
-          // Always keep the selected hunk inside the mounted slice even if the viewport is a little
-          // ahead or behind it. That avoids unmounting the active target during navigation settles.
-          minTop = Math.min(minTop, selectedHunkBounds.top - overscanRows);
-          maxBottom = Math.max(
-            maxBottom,
-            selectedHunkBounds.top + selectedHunkBounds.height + overscanRows,
-          );
-        }
-      }
+      // Keep the mounted rows bounded to the viewport slice. Selection reveal uses planned hunk
+      // geometry as its fallback, so mounting an offscreen selected hunk is not necessary and would
+      // remount very large hunks in full.
 
       // Clamp the requested file-local interval back into the real body extent, then store it as
       // { top, height } so the row slicer can rebuild the matching [top, bottom) window later.
-      const clampedTop = Math.max(0, minTop);
+      const clampedTop = Math.min(geometry.bodyHeight, Math.max(0, minTop));
       const clampedBottom = Math.min(geometry.bodyHeight, Math.max(clampedTop, maxBottom));
       next.set(file.id, {
         top: clampedTop,
@@ -649,8 +638,6 @@ export function DiffPane({
     scrollViewport.height,
     scrollViewport.top,
     sectionGeometry,
-    selectedFileId,
-    selectedHunkIndex,
     visibleWindowedFileIds,
   ]);
 
