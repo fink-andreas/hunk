@@ -29,6 +29,15 @@ export type StartupPlan =
       text: string;
     }
   | {
+      kind: "passthrough";
+      text: string;
+    }
+  | {
+      kind: "static-diff-pager";
+      text: string;
+      options: CliInput["options"];
+    }
+  | {
       kind: "app";
       bootstrap: AppBootstrap;
       cliInput: CliInput;
@@ -44,6 +53,8 @@ export interface StartupDeps {
   loadAppBootstrapImpl?: typeof loadAppBootstrap;
   usesPipedPatchInputImpl?: typeof usesPipedPatchInput;
   openControllingTerminalImpl?: typeof openControllingTerminal;
+  stdoutIsTTY?: boolean;
+  env?: NodeJS.ProcessEnv;
 }
 
 /** Normalize startup work so help, pager, and app-bootstrap paths can be tested directly. */
@@ -60,8 +71,11 @@ export async function prepareStartupPlan(
   const loadAppBootstrapImpl = deps.loadAppBootstrapImpl ?? loadAppBootstrap;
   const usesPipedPatchInputImpl = deps.usesPipedPatchInputImpl ?? usesPipedPatchInput;
   const openControllingTerminalImpl = deps.openControllingTerminalImpl ?? openControllingTerminal;
+  const stdoutIsTTY = deps.stdoutIsTTY ?? Boolean(process.stdout.isTTY);
+  const env = deps.env ?? process.env;
 
   let parsedCliInput = await parseCliImpl(argv);
+  let controllingTerminal: ControllingTerminal | null = null;
 
   if (parsedCliInput.kind === "help") {
     return {
@@ -93,6 +107,32 @@ export async function prepareStartupPlan(
       };
     }
 
+    if (!stdoutIsTTY) {
+      return {
+        kind: "passthrough",
+        text: stdinText,
+      };
+    }
+
+    // Captured pager hosts like LazyGit can provide a PTY while advertising TERM=dumb.
+    // In that mode, emit static colored diff output instead of launching the TUI.
+    if (env.TERM === "dumb") {
+      return {
+        kind: "static-diff-pager",
+        text: stdinText,
+        options: parsedCliInput.options,
+      };
+    }
+
+    controllingTerminal = openControllingTerminalImpl();
+    if (!controllingTerminal) {
+      return {
+        kind: "static-diff-pager",
+        text: stdinText,
+        options: parsedCliInput.options,
+      };
+    }
+
     parsedCliInput = {
       kind: "patch",
       file: "-",
@@ -117,10 +157,15 @@ export async function prepareStartupPlan(
     );
   }
 
-  const bootstrap = await loadAppBootstrapImpl(cliInput);
-  const controllingTerminal = usesPipedPatchInputImpl(cliInput)
-    ? openControllingTerminalImpl()
-    : null;
+  let bootstrap: AppBootstrap;
+  try {
+    bootstrap = await loadAppBootstrapImpl(cliInput);
+  } catch (error) {
+    controllingTerminal?.close();
+    throw error;
+  }
+
+  controllingTerminal ??= usesPipedPatchInputImpl(cliInput) ? openControllingTerminalImpl() : null;
 
   return {
     kind: "app",
