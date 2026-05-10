@@ -17,6 +17,13 @@
 import { loadAppBootstrap } from "../core/loaders";
 import type { CommonOptions, DiffFile } from "../core/types";
 import { buildStackRows, loadHighlightedDiff, type DiffRow, type RenderSpan } from "./diff/pierre";
+import {
+  diffRailMarker,
+  neutralRailColor,
+  stackCellPalette,
+  stackGutterText,
+  stackRailColor,
+} from "./diff/rowStyle";
 import { resolveTheme, type AppTheme } from "./themes";
 
 const RESET = "\x1b[0m";
@@ -49,51 +56,7 @@ function serializeSpans(spans: RenderSpan[], rowBg: string) {
   return spans.map((span) => colorText(span.text, span.fg, span.bg ?? rowBg)).join("");
 }
 
-function neutralRailColor(theme: AppTheme) {
-  return theme.lineNumberFg;
-}
-
-function marker() {
-  return "▌";
-}
-
-/** Keep the static stack gutter visually aligned with DiffRowView's stack renderer. */
-function stackPalette(kind: "context" | "addition" | "deletion", theme: AppTheme) {
-  if (kind === "addition") {
-    return {
-      railColor: theme.addedSignColor,
-      gutterBg: theme.addedBg,
-      contentBg: theme.addedBg,
-      numberColor: theme.addedSignColor,
-    };
-  }
-
-  if (kind === "deletion") {
-    return {
-      railColor: theme.removedSignColor,
-      gutterBg: theme.removedBg,
-      contentBg: theme.removedBg,
-      numberColor: theme.removedSignColor,
-    };
-  }
-
-  return {
-    railColor: neutralRailColor(theme),
-    gutterBg: theme.lineNumberBg,
-    contentBg: theme.contextBg,
-    numberColor: theme.lineNumberFg,
-  };
-}
-
-function lineNumberText(value: number | undefined, width: number) {
-  return value === undefined ? " ".repeat(width) : String(value).padStart(width, " ");
-}
-
-function stackGutterText(cell: Extract<DiffRow, { type: "stack-line" }>["cell"], width: number) {
-  const oldLine = lineNumberText(cell.oldLineNumber, width);
-  const newLine = lineNumberText(cell.newLineNumber, width);
-  return `${oldLine} ${newLine} ${cell.sign}`.padEnd(width * 2 + 5);
-}
+const marker = diffRailMarker;
 
 function renderHeaderLikeRow(text: string, fg: string, bg: string, theme: AppTheme) {
   return `${colorText(marker(), neutralRailColor(theme), bg)}${colorText(text.trimEnd(), fg, bg)}`;
@@ -114,9 +77,9 @@ function renderStaticRow(row: DiffRow, theme: AppTheme, lineNumberWidth: number)
   }
 
   const { cell } = row;
-  const palette = stackPalette(cell.kind, theme);
-  return `${colorText(marker(), palette.railColor, theme.panel)}${colorText(
-    stackGutterText(cell, lineNumberWidth),
+  const palette = stackCellPalette(cell.kind, theme);
+  return `${colorText(marker(), stackRailColor(cell.kind, theme, true), theme.panel)}${colorText(
+    stackGutterText(cell, lineNumberWidth, true).padEnd(lineNumberWidth * 2 + 5),
     palette.numberColor,
     palette.gutterBg,
   )}${serializeSpans(cell.spans, palette.contentBg)}`;
