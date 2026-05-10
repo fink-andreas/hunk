@@ -8,12 +8,25 @@ All notable user-visible changes to Hunk are documented in this file.
 
 ### Changed
 
+### Fixed
+
+## [0.11.1] - 2026-05-10
+
+### Added
+
+### Changed
+
 - Auto-detect Jujutsu checkouts for `hunk diff` and `hunk show`, while keeping explicit `vcs` config overrides.
 
 ### Fixed
 
-- Fixed `hunk pager` parsing for Git diffs emitted with `diff.mnemonicPrefix=true` so file paths do not keep `i/`, `w/`, `c/`, `1/`, or `2/` side prefixes.
 - Fixed large tracked and untracked file handling so very large diffs render as skipped placeholders instead of slowing startup or overflowing the JavaScript call stack.
+- Fixed Git patch parsing for `diff.noprefix=true` input so Hunk restores parser-safe `a/` and `b/` prefixes without mangling real paths.
+- Fixed `hunk pager` parsing for Git diffs emitted with `diff.mnemonicPrefix=true` so file paths do not keep `i/`, `w/`, `c/`, `1/`, or `2/` side prefixes.
+- Fixed review scrolling so viewport updates are coalesced and no longer risk a render loop.
+- Fixed agent comment hunk ranges so context lines from hunk headers remain part of the target range.
+- Fixed untracked-file reviews in repositories with external diff tools configured by passing `--no-ext-diff`.
+- Fixed diff geometry for hunks with multiple agent notes so offscreen notes no longer skew scrolling measurements.
 
 ## [0.11.0] - 2026-05-09
 
