@@ -14,9 +14,11 @@ import type {
   NavigatedSelectionResult,
   ReloadedSessionResult,
   RemovedCommentResult,
+  RemovedUserNoteResult,
   SelectedSessionContext,
   SessionLiveCommentSummary,
   SessionReview,
+  SessionReviewNoteSummary,
 } from "./types";
 import type {
   SessionCommentAddCommandInput,
@@ -25,6 +27,9 @@ import type {
   SessionCommentListCommandInput,
   SessionCommentRemoveCommandInput,
   SessionNavigateCommandInput,
+  SessionNoteGetCommandInput,
+  SessionNoteListCommandInput,
+  SessionNoteRemoveCommandInput,
   SessionReloadCommandInput,
   SessionReviewCommandInput,
   SessionSelectorInput,
@@ -44,6 +49,9 @@ export interface HunkSessionCliClient {
   listComments(input: SessionCommentListCommandInput): Promise<SessionLiveCommentSummary[]>;
   removeComment(input: SessionCommentRemoveCommandInput): Promise<RemovedCommentResult>;
   clearComments(input: SessionCommentClearCommandInput): Promise<ClearedCommentsResult>;
+  listNotes?: (input: SessionNoteListCommandInput) => Promise<SessionReviewNoteSummary[]>;
+  getNote?: (input: SessionNoteGetCommandInput) => Promise<SessionReviewNoteSummary>;
+  removeNote?: (input: SessionNoteRemoveCommandInput) => Promise<RemovedUserNoteResult>;
 }
 
 async function extractResponseError(response: Response) {
@@ -102,6 +110,7 @@ class HttpHunkSessionCliClient implements HunkSessionCliClient {
         action: "review",
         selector: input.selector,
         includePatch: input.includePatch,
+        includeNotes: input.includeNotes,
       })
     ).review;
   }
@@ -184,6 +193,37 @@ class HttpHunkSessionCliClient implements HunkSessionCliClient {
         action: "comment-clear",
         selector: input.selector,
         filePath: input.filePath,
+      })
+    ).result;
+  }
+
+  async listNotes(input: SessionNoteListCommandInput) {
+    return (
+      await this.request<{ notes: SessionReviewNoteSummary[] }>({
+        action: "note-list",
+        selector: input.selector,
+        filePath: input.filePath,
+        source: input.source,
+      })
+    ).notes;
+  }
+
+  async getNote(input: SessionNoteGetCommandInput) {
+    return (
+      await this.request<{ note: SessionReviewNoteSummary }>({
+        action: "note-get",
+        selector: input.selector,
+        noteId: input.noteId,
+      })
+    ).note;
+  }
+
+  async removeNote(input: SessionNoteRemoveCommandInput) {
+    return (
+      await this.request<{ result: RemovedUserNoteResult }>({
+        action: "note-rm",
+        selector: input.selector,
+        noteId: input.noteId,
       })
     ).result;
   }
@@ -350,6 +390,15 @@ export function formatReviewOutput(review: SessionReview) {
     `Selected hunk: ${hunkNumber}`,
     `Agent notes visible: ${review.showAgentNotes ? "yes" : "no"}`,
     `Live comments: ${review.liveCommentCount}`,
+    `Review notes: ${review.reviewNoteCount ?? review.reviewNotes?.length ?? 0}`,
+    ...(review.reviewNotes
+      ? [
+          "Notes:",
+          ...review.reviewNotes.map(
+            (note) => `  - ${note.noteId} [${note.source}] ${note.filePath}: ${note.body}`,
+          ),
+        ]
+      : []),
     "Files:",
     ...review.files.flatMap((file) => [
       `  - ${file.path} (+${file.additions} -${file.deletions}, hunks: ${file.hunkCount})`,
@@ -420,6 +469,43 @@ export function formatRemoveCommentOutput(
   result: RemovedCommentResult,
 ) {
   return `Removed live comment ${result.commentId} from ${describeSessionSelector(selector)}. Remaining comments: ${result.remainingCommentCount}.\n`;
+}
+
+export function formatNoteListOutput(
+  selector: SessionSelectorInput,
+  notes: SessionReviewNoteSummary[],
+) {
+  if (notes.length === 0) {
+    return `No review notes for ${describeSessionSelector(selector)}.\n`;
+  }
+
+  return `${notes
+    .map((note) =>
+      [
+        `${note.noteId}  ${note.filePath} [${note.source}]`,
+        ...(note.hunkIndex !== undefined ? [`  hunk: ${note.hunkIndex + 1}`] : []),
+        `  body: ${note.body}`,
+        ...(note.author ? [`  author: ${note.author}`] : []),
+      ].join("\n"),
+    )
+    .join("\n\n")}\n`;
+}
+
+export function formatNoteGetOutput(note: SessionReviewNoteSummary) {
+  return `${[
+    `${note.noteId}  ${note.filePath} [${note.source}]`,
+    ...(note.hunkIndex !== undefined ? [`hunk: ${note.hunkIndex + 1}`] : []),
+    `body: ${note.body}`,
+    ...(note.author ? [`author: ${note.author}`] : []),
+    "",
+  ].join("\n")}`;
+}
+
+export function formatRemoveNoteOutput(
+  selector: SessionSelectorInput,
+  result: RemovedUserNoteResult,
+) {
+  return `Removed user note ${result.noteId} from ${describeSessionSelector(selector)}. Remaining notes: ${result.remainingNoteCount}.\n`;
 }
 
 export function formatClearCommentsOutput(

@@ -6,6 +6,7 @@ import type {
   HunkSessionBrokerClient,
   ReloadedSessionResult,
   SessionLiveCommentSummary,
+  SessionReviewNoteSummary,
 } from "../../hunk-session/types";
 import type { ReviewController } from "./useReviewController";
 
@@ -21,6 +22,9 @@ export function useHunkSessionBridge({
   openAgentNotes,
   reloadSession,
   removeLiveComment,
+  removeUserNote,
+  reviewNoteCount,
+  reviewNoteSummaries,
   selectedFile,
   selectedHunk,
   selectedHunkIndex,
@@ -39,6 +43,9 @@ export function useHunkSessionBridge({
     options?: { resetApp?: boolean; sourcePath?: string },
   ) => Promise<ReloadedSessionResult>;
   removeLiveComment: ReviewController["removeLiveComment"];
+  removeUserNote: ReviewController["removeUserNote"];
+  reviewNoteCount: number;
+  reviewNoteSummaries: SessionReviewNoteSummary[];
   selectedFile: DiffFile | undefined;
   selectedHunk: DiffFile["metadata"]["hunks"][number] | undefined;
   selectedHunkIndex: number;
@@ -54,6 +61,7 @@ export function useHunkSessionBridge({
         openAgentNotes,
         reloadSession: (nextInput, options) => reloadSession(nextInput, { ...options }),
         removeLiveComment,
+        removeUserNote,
       }),
     [
       addLiveComment,
@@ -63,6 +71,7 @@ export function useHunkSessionBridge({
       openAgentNotes,
       reloadSession,
       removeLiveComment,
+      removeUserNote,
     ],
   );
 
@@ -92,12 +101,16 @@ export function useHunkSessionBridge({
         showAgentNotes,
         liveCommentCount,
         liveComments: liveCommentSummaries,
+        reviewNoteCount,
+        reviewNotes: reviewNoteSummaries,
       },
     });
   }, [
     hostClient,
     liveCommentCount,
     liveCommentSummaries,
+    reviewNoteCount,
+    reviewNoteSummaries,
     selectedFile?.id,
     selectedFile?.path,
     selectedHunk,

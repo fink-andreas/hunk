@@ -5,6 +5,9 @@ import type {
   SessionCommentListCommandInput,
   SessionCommentRemoveCommandInput,
   SessionNavigateCommandInput,
+  SessionNoteGetCommandInput,
+  SessionNoteListCommandInput,
+  SessionNoteRemoveCommandInput,
   SessionReloadCommandInput,
   SessionReviewCommandInput,
   SessionSelectorInput,
@@ -17,9 +20,11 @@ import type {
   NavigatedSelectionResult,
   ReloadedSessionResult,
   RemovedCommentResult,
+  RemovedUserNoteResult,
   SelectedSessionContext,
   SessionLiveCommentSummary,
   SessionReview,
+  SessionReviewNoteSummary,
 } from "../hunk-session/types";
 
 export const HUNK_SESSION_API_PATH = "/session-api";
@@ -30,7 +35,7 @@ export const HUNK_SESSION_API_VERSION = 1;
  * Version daemon/session compatibility separately from the HTTP action surface so newer Hunk
  * builds can refresh an older daemon even when it still exposes the same API endpoints.
  */
-export const HUNK_SESSION_DAEMON_VERSION = 2;
+export const HUNK_SESSION_DAEMON_VERSION = 3;
 
 export type SessionDaemonAction =
   | "list"
@@ -43,7 +48,10 @@ export type SessionDaemonAction =
   | "comment-apply"
   | "comment-list"
   | "comment-rm"
-  | "comment-clear";
+  | "comment-clear"
+  | "note-list"
+  | "note-get"
+  | "note-rm";
 
 export interface SessionDaemonCapabilities {
   version: number;
@@ -67,6 +75,7 @@ export type SessionDaemonRequest =
       action: "review";
       selector: SessionSelectorInput;
       includePatch: SessionReviewCommandInput["includePatch"];
+      includeNotes: SessionReviewCommandInput["includeNotes"];
     }
   | {
       action: "navigate";
@@ -114,6 +123,22 @@ export type SessionDaemonRequest =
       action: "comment-clear";
       selector: SessionCommentClearCommandInput["selector"];
       filePath?: string;
+    }
+  | {
+      action: "note-list";
+      selector: SessionNoteListCommandInput["selector"];
+      filePath?: string;
+      source?: SessionNoteListCommandInput["source"];
+    }
+  | {
+      action: "note-get";
+      selector: SessionNoteGetCommandInput["selector"];
+      noteId: string;
+    }
+  | {
+      action: "note-rm";
+      selector: SessionNoteRemoveCommandInput["selector"];
+      noteId: string;
     };
 
 export type SessionDaemonResponse =
@@ -126,5 +151,8 @@ export type SessionDaemonResponse =
   | { result: AppliedCommentResult }
   | { result: AppliedCommentBatchResult }
   | { comments: SessionLiveCommentSummary[] }
+  | { notes: SessionReviewNoteSummary[] }
+  | { note: SessionReviewNoteSummary }
   | { result: RemovedCommentResult }
+  | { result: RemovedUserNoteResult }
   | { result: ClearedCommentsResult };

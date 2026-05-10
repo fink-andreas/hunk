@@ -8,6 +8,7 @@ All notable user-visible changes to Hunk are documented in this file.
 
 - Added an `e` shortcut to open the selected diff file in `$EDITOR`.
 - Added `g` and `G` keyboard aliases for jump-to-top and jump-to-bottom review navigation.
+- Added session-persistent user-authored inline notes with `i` to draft/save notes and `hunk session note ...` commands for agent readback.
 
 ### Changed
 

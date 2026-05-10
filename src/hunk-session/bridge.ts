@@ -7,6 +7,7 @@ import type {
   NavigatedSelectionResult,
   ReloadedSessionResult,
   RemovedCommentResult,
+  RemovedUserNoteResult,
 } from "./types";
 
 export interface HunkSessionBridgeHandlers {
@@ -33,6 +34,7 @@ export interface HunkSessionBridgeHandlers {
     options?: { resetApp?: boolean; sourcePath?: string },
   ) => Promise<ReloadedSessionResult>;
   removeLiveComment: (commentId: string) => RemovedCommentResult;
+  removeUserNote?: (noteId: string) => RemovedUserNoteResult;
 }
 
 /** Build the app-facing bridge handler the generic broker client calls into for Hunk commands. */
@@ -73,6 +75,11 @@ export function createHunkSessionBridge(handlers: HunkSessionBridgeHandlers) {
           });
         case "remove_comment":
           return handlers.removeLiveComment(message.input.commentId);
+        case "remove_user_note":
+          if (!handlers.removeUserNote) {
+            throw new Error("This Hunk session cannot remove user notes.");
+          }
+          return handlers.removeUserNote(message.input.noteId);
         case "clear_comments":
           return handlers.clearLiveComments(message.input.filePath);
       }

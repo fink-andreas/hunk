@@ -29,6 +29,7 @@ interface DiffSectionProps {
   visibleBodyBounds?: VisibleBodyBounds;
   viewWidth: number;
   onOpenAgentNotesAtHunk: (hunkIndex: number) => void;
+  onStartUserNoteAtHunk?: (hunkIndex: number) => void;
   onSelect: () => void;
 }
 
@@ -53,6 +54,7 @@ function DiffSectionComponent({
   visibleBodyBounds,
   viewWidth,
   onOpenAgentNotesAtHunk,
+  onStartUserNoteAtHunk,
   onSelect,
 }: DiffSectionProps) {
   const annotatedHunkIndices = getAnnotatedHunkIndices(file);
@@ -103,6 +105,7 @@ function DiffSectionComponent({
         annotatedHunkIndices={annotatedHunkIndices}
         visibleAgentNotes={visibleAgentNotes}
         onOpenAgentNotesAtHunk={onOpenAgentNotesAtHunk}
+        onStartUserNoteAtHunk={onStartUserNoteAtHunk}
         selectedHunkIndex={selectedHunkIndex}
         sectionGeometry={sectionGeometry}
         shouldLoadHighlight={shouldLoadHighlight}

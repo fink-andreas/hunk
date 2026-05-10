@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { testRender } from "@opentui/react/test-utils";
 import { act, createRef, useEffect, useState, type ReactNode } from "react";
@@ -21,6 +21,7 @@ const { MenuDropdown } = await import("./chrome/MenuDropdown");
 const { StatusBar } = await import("./chrome/StatusBar");
 const { DiffSectionPlaceholder } = await import("./panes/DiffSectionPlaceholder");
 const { PierreDiffView } = await import("../diff/PierreDiffView");
+const { DiffRowView } = await import("../diff/renderRows");
 
 function createTestDiffFile(
   id: string,
@@ -497,6 +498,65 @@ describe("UI components", () => {
     expect(frame).toContain("@@ -1,1 +1,1 @@");
     expect(frame).toContain("[AI]");
     expect(frame.indexOf("alpha.ts")).toBeLessThan(frame.indexOf("beta.ts"));
+  });
+
+  test("DiffRowView renders a clickable add-note affordance for a hovered diff row", async () => {
+    const theme = resolveTheme("midnight", null);
+    const startUserNote = mock(() => undefined);
+    const setup = await testRender(
+      <DiffRowView
+        row={{
+          type: "stack-line",
+          key: "alpha:line:1",
+          fileId: "alpha",
+          hunkIndex: 0,
+          cell: {
+            kind: "addition",
+            sign: "+",
+            newLineNumber: 2,
+            spans: [{ text: "export const alpha = 2;" }],
+          },
+        }}
+        width={72}
+        lineNumberDigits={1}
+        showLineNumbers={true}
+        showHunkHeaders={true}
+        wrapLines={false}
+        codeHorizontalOffset={0}
+        theme={theme}
+        selected={false}
+        annotated={false}
+        showAddNoteBadge={true}
+        onStartUserNoteAtHunk={startUserNote}
+      />,
+      { width: 80, height: 3 },
+    );
+
+    try {
+      await act(async () => {
+        await setup.renderOnce();
+      });
+      const frame = setup.captureCharFrame();
+      expect(frame).toContain("[+]");
+      const addNoteY = frame.split("\n").findIndex((line) => line.includes("[+]"));
+      const addNoteX = frame.split("\n")[addNoteY]?.indexOf("[+]") ?? -1;
+      expect(addNoteY).toBeGreaterThanOrEqual(0);
+      expect(addNoteX).toBeGreaterThanOrEqual(0);
+
+      await act(async () => {
+        await setup.mockMouse.click(4, addNoteY);
+      });
+      expect(startUserNote).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await setup.mockMouse.click(addNoteX + 1, addNoteY);
+      });
+      expect(startUserNote).toHaveBeenCalledWith(0);
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
   });
 
   test("DiffPane scrolls a later selected file into view in the windowed path", async () => {
@@ -1278,11 +1338,52 @@ describe("UI components", () => {
 
     const lines = frame.split("\n");
     expect(lines[0]?.trimStart().startsWith("┌")).toBe(true);
-    expect(lines[1]).toContain("AI note · ▶ new 2-4");
+    expect(lines[1]).toContain("AI note · R2–R4");
     expect(lines[1]).toContain("[x]");
     expect(lines[2]).toContain("Summary line");
     expect(lines[3]).toContain("Rationale line.");
     expect(lines[4]?.trimStart().startsWith("└")).toBe(true);
+  });
+
+  test("AgentInlineNote renders draft notes as an editable composer", async () => {
+    const theme = resolveTheme("midnight", null);
+    const file = createTestDiffFile(
+      "draft",
+      "src/core/cli.ts",
+      "export const value = 1;\n",
+      "export const value = 2;\n",
+    );
+    const frame = await captureFrame(
+      <AgentInlineNote
+        annotation={{
+          newRange: [611, 611],
+          source: "user-draft",
+          summary: "Here's my comment. I think we should think",
+        }}
+        draft={{
+          body: "Here's my comment. I think we should think",
+          focused: true,
+          onCancel: () => {},
+          onInput: () => {},
+          onSave: () => {},
+        }}
+        file={file}
+        anchorSide="new"
+        layout="split"
+        theme={theme}
+        width={96}
+      />,
+      100,
+      12,
+    );
+
+    const lines = frame.split("\n");
+    expect(lines[0]).toContain("┌");
+    expect(lines[1]).toContain("│ Draft note - src/core/cli.ts R611 │");
+    expect(lines[2]).toContain("┴");
+    expect(frame).toContain("│ my comment. I think we should think");
+    expect(frame).toContain("│ Save │ Cancel │");
+    expect(frame).toContain("└──────┴────────┘");
   });
 
   test("DiffPane renders all visible hunk notes across the review stream", async () => {
@@ -1327,13 +1428,13 @@ describe("UI components", () => {
       28,
     );
 
-    expect(frame).toContain("AI note · ▶ new 2");
+    expect(frame).toContain("AI note · alpha.ts R2");
     expect(frame).toContain("Annotation for alpha.ts");
     expect(frame).toContain("Why alpha.ts changed");
-    expect(frame.indexOf("AI note · ▶ new 2")).toBeLessThan(
+    expect(frame.indexOf("AI note · alpha.ts R2")).toBeLessThan(
       frame.indexOf("2 + export const add = true;"),
     );
-    expect(frame).toContain("AI note · ▶ new 1");
+    expect(frame).toContain("AI note · beta.ts R1");
     expect(frame).toContain("Annotation for beta.ts");
     expect(frame).toContain("Why beta.ts changed");
     expect(frame).not.toContain("alpha.ts note");
@@ -1941,11 +2042,11 @@ describe("UI components", () => {
     );
 
     expect(frame).not.toContain("@@ -1,1 +1,2 @@");
-    expect(frame).toContain("AI note · hunk");
+    expect(frame).toContain("AI note · note-fallback.ts hunk");
     expect(frame).toContain("Ungrounded note");
     expect(frame).toContain("Falls back to the first visible");
     expect(frame).toContain("row.");
-    expect(frame.indexOf("AI note · hunk")).toBeLessThan(
+    expect(frame.indexOf("AI note · note-fallback.ts hunk")).toBeLessThan(
       frame.indexOf("1 - export const value = 1;"),
     );
   });

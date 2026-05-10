@@ -21,8 +21,11 @@ import {
   formatContextOutput,
   formatListOutput,
   formatNavigationOutput,
+  formatNoteGetOutput,
+  formatNoteListOutput,
   formatReloadOutput,
   formatRemoveCommentOutput,
+  formatRemoveNoteOutput,
   formatReviewOutput,
   formatSessionOutput,
   stringifyJson,
@@ -43,6 +46,9 @@ const REQUIRED_ACTION_BY_COMMAND: Record<SessionCommandInput["action"], SessionD
   "comment-list": "comment-list",
   "comment-rm": "comment-rm",
   "comment-clear": "comment-clear",
+  "note-list": "note-list",
+  "note-get": "note-get",
+  "note-rm": "note-rm",
 };
 
 export type HunkDaemonCliClient = HunkSessionCliClient;
@@ -267,6 +273,40 @@ export async function runSessionCommand(input: SessionCommandInput) {
       });
       return renderOutput(input.output, { result }, () =>
         formatClearCommentsOutput(input.selector, result),
+      );
+    }
+    case "note-list": {
+      if (!client.listNotes) {
+        throw new Error("The active Hunk session client does not support note-list.");
+      }
+      const notes = await client.listNotes({
+        ...input,
+        selector: normalizedSelector!,
+      });
+      return renderOutput(input.output, { notes }, () =>
+        formatNoteListOutput(input.selector, notes),
+      );
+    }
+    case "note-get": {
+      if (!client.getNote) {
+        throw new Error("The active Hunk session client does not support note-get.");
+      }
+      const note = await client.getNote({
+        ...input,
+        selector: normalizedSelector!,
+      });
+      return renderOutput(input.output, { note }, () => formatNoteGetOutput(note));
+    }
+    case "note-rm": {
+      if (!client.removeNote) {
+        throw new Error("The active Hunk session client does not support note-rm.");
+      }
+      const result = await client.removeNote({
+        ...input,
+        selector: normalizedSelector!,
+      });
+      return renderOutput(input.output, { result }, () =>
+        formatRemoveNoteOutput(input.selector, result),
       );
     }
   }

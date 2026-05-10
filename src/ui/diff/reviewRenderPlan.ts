@@ -38,6 +38,7 @@ export type PlannedReviewRow =
       hunkIndex: number;
       annotationId: string;
       annotation: AgentAnnotation;
+      note: VisibleAgentNote;
       anchorSide?: "old" | "new";
       noteCount: number;
       noteIndex: number;
@@ -317,6 +318,7 @@ export function buildReviewRenderPlan({
         hunkIndex: placement.hunkIndex,
         annotationId: placement.note.id,
         annotation: placement.note.annotation,
+        note: placement.note,
         anchorSide: placement.anchorSide,
         noteCount: placement.noteCount,
         noteIndex: placement.noteIndex,

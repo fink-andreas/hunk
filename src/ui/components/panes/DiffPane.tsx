@@ -9,8 +9,13 @@ import {
   useState,
   type RefObject,
 } from "react";
-import type { DiffFile, LayoutMode } from "../../../core/types";
-import type { VisibleAgentNote } from "../../lib/agentAnnotations";
+import type { AgentAnnotation, DiffFile, LayoutMode } from "../../../core/types";
+import type { DraftReviewNote } from "../../hooks/useReviewController";
+import {
+  alwaysShowReviewNote,
+  reviewNoteSource,
+  type VisibleAgentNote,
+} from "../../lib/agentAnnotations";
 import { computeHunkRevealScrollTop } from "../../lib/hunkScroll";
 import {
   measureDiffSectionGeometry,
@@ -41,7 +46,6 @@ import type { VisibleBodyBounds } from "../../diff/rowWindowing";
 import { prefetchHighlightedDiff } from "../../diff/useHighlightedDiff";
 
 const EMPTY_VISIBLE_AGENT_NOTES: VisibleAgentNote[] = [];
-const EMPTY_VISIBLE_AGENT_NOTES_BY_FILE = new Map<string, VisibleAgentNote[]>();
 
 /**
  * Clamp one vertical scroll target into the currently reachable review-stream extent.
@@ -137,6 +141,7 @@ export function DiffPane({
   selectedFileId,
   selectedHunkIndex,
   scrollToNote = false,
+  draftNote = null,
   separatorWidth,
   pagerMode = false,
   showAgentNotes,
@@ -151,6 +156,11 @@ export function DiffPane({
   theme,
   width,
   onOpenAgentNotesAtHunk,
+  onRemoveUserNote,
+  onSaveDraftNote,
+  onStartUserNoteAtHunk,
+  onUpdateDraftNote,
+  onCancelDraftNote,
   onScrollCodeHorizontally = () => {},
   onSelectFile,
   onViewportCenteredHunkChange,
@@ -165,6 +175,7 @@ export function DiffPane({
   selectedFileId?: string;
   selectedHunkIndex: number;
   scrollToNote?: boolean;
+  draftNote?: DraftReviewNote | null;
   separatorWidth: number;
   pagerMode?: boolean;
   showAgentNotes: boolean;
@@ -179,6 +190,11 @@ export function DiffPane({
   theme: AppTheme;
   width: number;
   onOpenAgentNotesAtHunk: (fileId: string, hunkIndex: number) => void;
+  onRemoveUserNote?: (noteId: string) => void;
+  onSaveDraftNote?: () => void;
+  onStartUserNoteAtHunk?: (fileId: string, hunkIndex: number) => void;
+  onUpdateDraftNote?: (body: string) => void;
+  onCancelDraftNote?: () => void;
   onScrollCodeHorizontally?: (delta: number) => void;
   onSelectFile: (fileId: string) => void;
   onViewportCenteredHunkChange?: (fileId: string, hunkIndex: number) => void;
@@ -249,27 +265,67 @@ export function DiffPane({
   const allAgentNotesByFile = useMemo(() => {
     const next = new Map<string, VisibleAgentNote[]>();
 
-    if (!showAgentNotes) {
-      return next;
-    }
-
     files.forEach((file) => {
-      const annotations = file.agent?.annotations ?? [];
-      if (annotations.length === 0) {
-        return;
-      }
+      const annotations = (file.agent?.annotations ?? []).filter(
+        (annotation) => showAgentNotes || alwaysShowReviewNote(annotation),
+      );
+      const notes: VisibleAgentNote[] = annotations.map((annotation, index) => {
+        const source = reviewNoteSource(annotation);
+        if (source !== "user") {
+          return {
+            id: `annotation:${file.id}:${annotation.id ?? index}`,
+            annotation,
+          };
+        }
 
-      next.set(
-        file.id,
-        annotations.map((annotation, index) => ({
+        return {
           id: `annotation:${file.id}:${annotation.id ?? index}`,
           annotation,
-        })),
-      );
+          source,
+          editable: true,
+          onRemove: annotation.id ? () => onRemoveUserNote?.(annotation.id!) : undefined,
+        };
+      });
+
+      if (draftNote?.fileId === file.id) {
+        const draftAnnotation: AgentAnnotation = {
+          id: draftNote.id,
+          source: "user-draft",
+          summary: draftNote.body || " ",
+          oldRange: draftNote.oldRange,
+          newRange: draftNote.newRange,
+          editable: true,
+        };
+        notes.push({
+          id: draftNote.id,
+          annotation: draftAnnotation,
+          source: "draft",
+          editable: true,
+          draft: {
+            body: draftNote.body,
+            focused: true,
+            onCancel: onCancelDraftNote ?? (() => {}),
+            onInput: onUpdateDraftNote ?? (() => {}),
+            onSave: onSaveDraftNote ?? (() => {}),
+          },
+        });
+      }
+
+      if (notes.length > 0) {
+        next.set(file.id, notes);
+      }
     });
 
     return next;
-  }, [files, showAgentNotes]);
+  }, [
+    draftNote,
+    files,
+    onCancelDraftNote,
+    onRemoveUserNote,
+    onSaveDraftNote,
+    onUpdateDraftNote,
+    showAgentNotes,
+  ]);
 
   // Keep exact row rendering for wrapped lines and the selected file's visible notes;
   // other files can still use placeholders and viewport windowing.
@@ -420,10 +476,6 @@ export function DiffPane({
 
   const visibleAgentNotesByFile = useMemo(() => {
     const next = new Map<string, VisibleAgentNote[]>();
-
-    if (!showAgentNotes) {
-      return EMPTY_VISIBLE_AGENT_NOTES_BY_FILE;
-    }
 
     const fileIdsToMeasure = new Set(visibleViewportFileIds);
     // Always measure the selected file with its real note rows so hunk navigation can compute
@@ -1184,6 +1236,9 @@ export function DiffPane({
                       visibleBodyBounds={visibleBodyBoundsByFile.get(file.id)}
                       onOpenAgentNotesAtHunk={(hunkIndex) =>
                         onOpenAgentNotesAtHunk(file.id, hunkIndex)
+                      }
+                      onStartUserNoteAtHunk={(hunkIndex) =>
+                        onStartUserNoteAtHunk?.(file.id, hunkIndex)
                       }
                       onSelect={() => onSelectFile(file.id)}
                     />

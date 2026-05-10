@@ -134,6 +134,31 @@ describe("live UI integration", () => {
     }
   });
 
+  test("user notes can be drafted and saved inline in a real PTY", async () => {
+    const fixture = harness.createLongWrapFilePair();
+    const session = await harness.launchHunk({
+      args: ["diff", fixture.before, fixture.after, "--mode", "split"],
+      cols: 120,
+      rows: 20,
+    });
+
+    try {
+      await session.waitForText(/View\s+Navigate\s+Theme\s+Agent\s+Help/, {
+        timeout: 15_000,
+      });
+
+      await session.press("i");
+      await session.waitForText(/Draft note/, { timeout: 5_000 });
+      await session.type("Please cover this edge case.");
+      await session.press("enter");
+
+      const savedNote = await session.waitForText(/Your note/, { timeout: 5_000 });
+      expect(savedNote).toContain("Please cover this edge case.");
+    } finally {
+      session.close();
+    }
+  });
+
   test("real hunk navigation jumps to later hunks in the review stream", async () => {
     const fixture = harness.createMultiHunkFilePair();
     const session = await harness.launchHunk({

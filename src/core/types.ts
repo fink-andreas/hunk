@@ -4,6 +4,23 @@ export type LayoutMode = "auto" | "split" | "stack";
 export type VcsMode = "git" | "jj";
 export type TerminalThemeMode = "light" | "dark";
 
+export type ReviewNoteSource = "ai" | "agent" | "user";
+
+export interface ReviewNote {
+  id: string;
+  source: ReviewNoteSource;
+  filePath: string;
+  hunkIndex?: number;
+  oldRange?: [number, number];
+  newRange?: [number, number];
+  body: string;
+  title?: string;
+  author?: string;
+  createdAt: string;
+  updatedAt?: string;
+  editable: boolean;
+}
+
 export interface AgentAnnotation {
   id?: string;
   oldRange?: [number, number];
@@ -13,8 +30,11 @@ export interface AgentAnnotation {
   tags?: string[];
   confidence?: "low" | "medium" | "high";
   source?: string;
+  title?: string;
   author?: string;
   createdAt?: string;
+  updatedAt?: string;
+  editable?: boolean;
 }
 
 export interface AgentFileContext {
@@ -120,6 +140,7 @@ export interface SessionReviewCommandInput {
   output: SessionCommandOutput;
   selector: SessionSelectorInput;
   includePatch: boolean;
+  includeNotes?: boolean;
 }
 
 export interface SessionNavigateCommandInput {
@@ -201,6 +222,31 @@ export interface SessionCommentClearCommandInput {
   confirmed: boolean;
 }
 
+export interface SessionNoteListCommandInput {
+  kind: "session";
+  action: "note-list";
+  output: SessionCommandOutput;
+  selector: SessionSelectorInput;
+  filePath?: string;
+  source?: ReviewNoteSource;
+}
+
+export interface SessionNoteGetCommandInput {
+  kind: "session";
+  action: "note-get";
+  output: SessionCommandOutput;
+  selector: SessionSelectorInput;
+  noteId: string;
+}
+
+export interface SessionNoteRemoveCommandInput {
+  kind: "session";
+  action: "note-rm";
+  output: SessionCommandOutput;
+  selector: SessionSelectorInput;
+  noteId: string;
+}
+
 export type SessionCommandInput =
   | SessionListCommandInput
   | SessionGetCommandInput
@@ -211,7 +257,10 @@ export type SessionCommandInput =
   | SessionCommentApplyCommandInput
   | SessionCommentListCommandInput
   | SessionCommentRemoveCommandInput
-  | SessionCommentClearCommandInput;
+  | SessionCommentClearCommandInput
+  | SessionNoteListCommandInput
+  | SessionNoteGetCommandInput
+  | SessionNoteRemoveCommandInput;
 
 export interface VcsCommandInput {
   kind: "vcs";

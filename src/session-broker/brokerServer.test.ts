@@ -213,7 +213,7 @@ describe("Hunk session daemon server", () => {
       expect(capabilities.status).toBe(200);
       await expect(capabilities.json()).resolves.toMatchObject({
         version: 1,
-        daemonVersion: 2,
+        daemonVersion: 3,
         actions: [
           "list",
           "get",
@@ -226,6 +226,9 @@ describe("Hunk session daemon server", () => {
           "comment-list",
           "comment-rm",
           "comment-clear",
+          "note-list",
+          "note-get",
+          "note-rm",
         ],
       });
 
