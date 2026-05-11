@@ -27,25 +27,13 @@
       "aarch64-darwin"
     ];
     forAllSystems = lib.genAttrs supportedSystems;
-  in {
-    packages = forAllSystems (
+    perSystem = forAllSystems (
       system: let
         pkgs = import nixpkgs {
           inherit system;
         };
         hunk = pkgs.callPackage ./nix/package.nix {
           bun2nix = bun2nix.packages.${system}.default;
-        };
-      in {
-        inherit hunk;
-        default = hunk;
-      }
-    );
-
-    apps = forAllSystems (
-      system: let
-        pkgs = import nixpkgs {
-          inherit system;
         };
         updateBunLock = pkgs.writeShellScriptBin "hunk-update-bun-lock" ''
           set -euo pipefail
@@ -55,28 +43,32 @@
           fi
         '';
       in {
-        default = {
-          type = "app";
-          program = "${self.packages.${system}.hunk}/bin/hunk";
-          meta.description = "Run Hunk";
+        packages = {
+          inherit hunk;
+          default = hunk;
         };
-        update-bun-lock = {
-          type = "app";
-          program = "${updateBunLock}/bin/hunk-update-bun-lock";
-          meta.description = "Regenerate nix/bun.lock.nix with the flake-pinned bun2nix";
+        apps = {
+          default = {
+            type = "app";
+            program = "${hunk}/bin/hunk";
+            meta.description = "Run Hunk";
+          };
+          update-bun-lock = {
+            type = "app";
+            program = "${updateBunLock}/bin/hunk-update-bun-lock";
+            meta.description = "Regenerate nix/bun.lock.nix with the flake-pinned bun2nix";
+          };
+        };
+        devShells = {
+          default = pkgs.callPackage ./nix/devShell.nix {};
         };
       }
     );
-
-    devShells = forAllSystems (
-      system: let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
-      in {
-        default = pkgs.callPackage ./nix/devShell.nix {};
-      }
-    );
+    systemOutput = name: lib.mapAttrs (_: value: value.${name}) perSystem;
+  in {
+    packages = systemOutput "packages";
+    apps = systemOutput "apps";
+    devShells = systemOutput "devShells";
 
     homeManagerModules = {
       hunk = import ./nix/home-manager.nix;
