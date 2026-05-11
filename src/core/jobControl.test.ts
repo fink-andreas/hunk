@@ -138,6 +138,23 @@ describe("installJobControlInterruptSupport", () => {
     renderer.emitKeypress(createTestKey({ ctrl: true, name: "c" }));
     expect(interruptCalls).toBe(0);
   });
+
+  test("ignores Ctrl-C after the renderer has already been destroyed", () => {
+    const renderer = createMockRenderer();
+    let interruptCalls = 0;
+
+    installJobControlInterruptSupport(renderer, () => {
+      interruptCalls += 1;
+    });
+
+    renderer.isDestroyed = true;
+    const ctrlC = createTestKey({ ctrl: true, name: "c" });
+    renderer.emitKeypress(ctrlC);
+
+    expect(ctrlC.defaultPrevented).toBe(false);
+    expect(ctrlC.propagationStopped).toBe(false);
+    expect(interruptCalls).toBe(0);
+  });
 });
 
 describe("installJobControlSuspendSupport", () => {
