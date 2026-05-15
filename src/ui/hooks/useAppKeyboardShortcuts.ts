@@ -346,7 +346,7 @@ export function useAppKeyboardShortcuts({
       return;
     }
 
-    if (key.name?.toLowerCase() === "i" || key.sequence?.toLowerCase() === "i") {
+    if (key.name?.toLowerCase() === "c" || key.sequence?.toLowerCase() === "c") {
       runAndCloseMenu(startUserNote);
       return;
     }

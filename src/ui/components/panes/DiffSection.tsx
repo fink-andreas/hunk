@@ -1,5 +1,6 @@
 import { memo } from "react";
 import type { DiffFile, LayoutMode } from "../../../core/types";
+import type { UserNoteLineTarget } from "../../hooks/useReviewController";
 import { PierreDiffView } from "../../diff/PierreDiffView";
 import type { VisibleBodyBounds } from "../../diff/rowWindowing";
 import type { DiffSectionGeometry } from "../../lib/diffSectionGeometry";
@@ -29,7 +30,9 @@ interface DiffSectionProps {
   visibleBodyBounds?: VisibleBodyBounds;
   viewWidth: number;
   onOpenAgentNotesAtHunk: (hunkIndex: number) => void;
-  onStartUserNoteAtHunk?: (hunkIndex: number) => void;
+  hoverActive?: boolean;
+  onHover: () => void;
+  onStartUserNoteAtHunk?: (hunkIndex: number, target?: UserNoteLineTarget) => void;
   onSelect: () => void;
 }
 
@@ -54,6 +57,8 @@ function DiffSectionComponent({
   visibleBodyBounds,
   viewWidth,
   onOpenAgentNotesAtHunk,
+  hoverActive = true,
+  onHover,
   onStartUserNoteAtHunk,
   onSelect,
 }: DiffSectionProps) {
@@ -62,6 +67,7 @@ function DiffSectionComponent({
   return (
     <box
       id={diffSectionId(file.id)}
+      onMouseOver={onHover}
       style={{
         width: "100%",
         flexDirection: "column",
@@ -104,6 +110,8 @@ function DiffSectionComponent({
         width={viewWidth}
         annotatedHunkIndices={annotatedHunkIndices}
         visibleAgentNotes={visibleAgentNotes}
+        hoverActive={hoverActive}
+        onHover={onHover}
         onOpenAgentNotesAtHunk={onOpenAgentNotesAtHunk}
         onStartUserNoteAtHunk={onStartUserNoteAtHunk}
         selectedHunkIndex={selectedHunkIndex}
@@ -135,6 +143,7 @@ export const DiffSection = memo(DiffSectionComponent, (previous, next) => {
     previous.wrapLines === next.wrapLines &&
     previous.showHeader === next.showHeader &&
     previous.showSeparator === next.showSeparator &&
+    previous.hoverActive === next.hoverActive &&
     previous.theme === next.theme &&
     previous.visibleAgentNotes === next.visibleAgentNotes &&
     previous.visibleBodyBounds === next.visibleBodyBounds &&

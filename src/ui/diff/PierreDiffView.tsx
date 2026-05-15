@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DiffFile, LayoutMode } from "../../core/types";
+import type { UserNoteLineTarget } from "../hooks/useReviewController";
 import { AgentInlineNote } from "../components/panes/AgentInlineNote";
 import type { VisibleAgentNote } from "../lib/agentAnnotations";
 import type { DiffSectionGeometry } from "../lib/diffSectionGeometry";
@@ -22,6 +23,7 @@ export function PierreDiffView({
   codeHorizontalOffset = 0,
   file,
   layout,
+  onHover,
   onOpenAgentNotesAtHunk,
   onStartUserNoteAtHunk,
   showLineNumbers = true,
@@ -29,6 +31,7 @@ export function PierreDiffView({
   wrapLines = false,
   theme,
   visibleAgentNotes = EMPTY_VISIBLE_AGENT_NOTES,
+  hoverActive = true,
   width,
   selectedHunkIndex,
   sectionGeometry,
@@ -40,13 +43,15 @@ export function PierreDiffView({
   codeHorizontalOffset?: number;
   file: DiffFile | undefined;
   layout: Exclude<LayoutMode, "auto">;
+  onHover?: () => void;
   onOpenAgentNotesAtHunk?: (hunkIndex: number) => void;
-  onStartUserNoteAtHunk?: (hunkIndex: number) => void;
+  onStartUserNoteAtHunk?: (hunkIndex: number, target?: UserNoteLineTarget) => void;
   showLineNumbers?: boolean;
   showHunkHeaders?: boolean;
   wrapLines?: boolean;
   theme: AppTheme;
   visibleAgentNotes?: VisibleAgentNote[];
+  hoverActive?: boolean;
   width: number;
   selectedHunkIndex: number;
   sectionGeometry?: DiffSectionGeometry;
@@ -55,6 +60,12 @@ export function PierreDiffView({
   visibleBodyBounds?: VisibleBodyBounds;
 }) {
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hoverActive) {
+      setHoveredRowKey(null);
+    }
+  }, [hoverActive]);
   const resolvedHighlighted = useHighlightedDiff({
     file,
     appearance: theme.appearance,
@@ -180,7 +191,10 @@ export function PierreDiffView({
             key={plannedRow.key}
             id={rowId}
             style={{ width: "100%", flexDirection: "column" }}
-            onMouseMove={() => setHoveredRowKey(plannedRow.key)}
+            onMouseMove={() => {
+              onHover?.();
+              setHoveredRowKey(plannedRow.key);
+            }}
           >
             <DiffRowView
               row={plannedRow.row}
@@ -199,7 +213,10 @@ export function PierreDiffView({
               anchorId={plannedRow.anchorId}
               noteGuideSide={plannedRow.noteGuideSide}
               showAddNoteBadge={hoveredRowKey === plannedRow.key && Boolean(onStartUserNoteAtHunk)}
-              onHoverRow={setHoveredRowKey}
+              onHoverRow={(rowKey) => {
+                onHover?.();
+                setHoveredRowKey(rowKey);
+              }}
               onOpenAgentNotesAtHunk={onOpenAgentNotesAtHunk}
               onStartUserNoteAtHunk={onStartUserNoteAtHunk}
             />

@@ -21,7 +21,7 @@ import {
 import { useAppKeyboardShortcuts } from "./hooks/useAppKeyboardShortcuts";
 import { useHunkSessionBridge } from "./hooks/useHunkSessionBridge";
 import { useMenuController } from "./hooks/useMenuController";
-import { useReviewController } from "./hooks/useReviewController";
+import { useReviewController, type UserNoteLineTarget } from "./hooks/useReviewController";
 import { buildAppMenus } from "./lib/appMenus";
 import { fileRowId } from "./lib/ids";
 import { openSelectedFileInEditor } from "./lib/openInEditor";
@@ -517,8 +517,8 @@ export function App({
 
   /** Start a user-authored inline note and move keyboard focus into it. */
   const startUserNote = useCallback(
-    (fileId?: string, hunkIndex?: number) => {
-      const draft = review.startUserNote(fileId, hunkIndex);
+    (fileId?: string, hunkIndex?: number, target?: UserNoteLineTarget) => {
+      const draft = review.startUserNote(fileId, hunkIndex, target);
       if (draft) {
         setFocusArea("note");
       }

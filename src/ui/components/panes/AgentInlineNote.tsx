@@ -1,3 +1,5 @@
+import type { TextareaRenderable } from "@opentui/core";
+import { useRef } from "react";
 import type { AgentAnnotation, DiffFile, LayoutMode } from "../../../core/types";
 import { isEscapeKey } from "../../lib/keyboard";
 import { wrapText } from "../../lib/agentPopover";
@@ -70,8 +72,8 @@ export function measureAgentInlineNoteHeight({
   ];
 
   if (annotation.source === "user-draft") {
-    // Title cap + connector + five-line body + button footer.
-    return 11;
+    // Title cap + connector + three-line body + button footer.
+    return 9;
   }
 
   // top border + title row + body lines + bottom border
@@ -108,6 +110,7 @@ export function AgentInlineNote({
   theme: AppTheme;
   width: number;
 }) {
+  const textareaRef = useRef<TextareaRenderable | null>(null);
   const closeText = onClose ? "[x]" : "";
   const titleSeparator = annotation.source === "user-draft" ? " - " : " · ";
   const titleText = `${inlineNoteTitle(annotation, noteIndex, noteCount)}${titleSeparator}${annotationRangeLabel(annotation, file)}`;
@@ -153,7 +156,7 @@ export function AgentInlineNote({
         : `└${"─".repeat(Math.max(0, boxWidth - 2))}┘`;
 
   if (draft) {
-    const draftBodyRows = 5;
+    const draftBodyRows = 3;
     const draftTitleBoxWidth = clamp(titleText.length + 4, 16, boxWidth);
     const draftInnerWidth = Math.max(1, boxWidth - 2);
     const draftContentWidth = Math.max(1, draftInnerWidth - 2);
@@ -227,62 +230,77 @@ export function AgentInlineNote({
           </box>
         </box>
 
-        {Array.from({ length: draftBodyRows }, (_, rowIndex) => (
+        <box
+          style={{
+            width: "100%",
+            height: draftBodyRows,
+            flexDirection: "row",
+            backgroundColor: theme.panel,
+          }}
+        >
+          <box style={{ width: boxLeft, height: draftBodyRows, backgroundColor: theme.panel }} />
           <box
-            key={`draft-body:${rowIndex}`}
-            style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
+            style={{
+              width: 1,
+              height: draftBodyRows,
+              flexDirection: "column",
+              backgroundColor: theme.panel,
+            }}
           >
-            <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-              <text>{" ".repeat(boxLeft)}</text>
-            </box>
-            <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-              <text fg={theme.noteBorder} bg={theme.noteBackground}>
+            {Array.from({ length: draftBodyRows }, (_, rowIndex) => (
+              <text
+                key={`draft-left-border:${rowIndex}`}
+                fg={theme.noteBorder}
+                bg={theme.noteBackground}
+              >
                 │
               </text>
-            </box>
-            <box style={{ width: 1, height: 1, backgroundColor: theme.noteBackground }}>
-              <text bg={theme.noteBackground}> </text>
-            </box>
-            <box
-              style={{ width: draftContentWidth, height: 1, backgroundColor: theme.noteBackground }}
-            >
-              {rowIndex === 0 ? (
-                <input
-                  width={draftContentWidth}
-                  value={draft.body}
-                  placeholder="Write a note…"
-                  focused={draft.focused}
-                  onInput={draft.onInput}
-                  onSubmit={draft.onSave}
-                  onKeyDown={(key) => {
-                    if (isEscapeKey(key)) {
-                      key.preventDefault();
-                      key.stopPropagation();
-                      draft.onCancel();
-                      return;
-                    }
-
-                    if (key.ctrl && (key.name === "s" || key.sequence === "\u0013")) {
-                      key.preventDefault();
-                      key.stopPropagation();
-                      draft.onSave();
-                    }
-                  }}
-                />
-              ) : (
-                <text bg={theme.noteBackground}>{" ".repeat(draftContentWidth)}</text>
-              )}
-            </box>
-            <box style={{ width: 1, height: 1, backgroundColor: theme.noteBackground }}>
-              <text bg={theme.noteBackground}> </text>
-            </box>
-            <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-              <text fg={theme.noteBorder} bg={theme.noteBackground}>
-                │
-              </text>
-            </box>
+            ))}
           </box>
-        ))}
+          <box style={{ width: 1, height: draftBodyRows, backgroundColor: theme.noteBackground }} />
+          <textarea
+            ref={textareaRef}
+            width={draftContentWidth}
+            height={draftBodyRows}
+            initialValue={draft.body}
+            placeholder="Write a note…"
+            focused={draft.focused}
+            backgroundColor={theme.noteBackground}
+            textColor={theme.text}
+            focusedBackgroundColor={theme.noteBackground}
+            focusedTextColor={theme.text}
+            keyBindings={[{ name: "j", ctrl: true, action: "newline" }]}
+            onContentChange={() => {
+              draft.onInput(textareaRef.current?.getTextRange(0, 100000) ?? "");
+            }}
+            onKeyDown={(key) => {
+              if (isEscapeKey(key)) {
+                key.preventDefault();
+                key.stopPropagation();
+                draft.onCancel();
+              }
+            }}
+          />
+          <box style={{ width: 1, height: draftBodyRows, backgroundColor: theme.noteBackground }} />
+          <box
+            style={{
+              width: 1,
+              height: draftBodyRows,
+              flexDirection: "column",
+              backgroundColor: theme.panel,
+            }}
+          >
+            {Array.from({ length: draftBodyRows }, (_, rowIndex) => (
+              <text
+                key={`draft-right-border:${rowIndex}`}
+                fg={theme.noteBorder}
+                bg={theme.noteBackground}
+              >
+                │
+              </text>
+            ))}
+          </box>
+        </box>
 
         <box
           style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}

@@ -1,5 +1,6 @@
 import { memo, type ReactNode } from "react";
 import type { DiffFile } from "../../core/types";
+import type { UserNoteLineTarget } from "../hooks/useReviewController";
 import type { AppTheme } from "../themes";
 import {
   resolveSplitCellGeometry,
@@ -447,7 +448,7 @@ export function diffMessage(file: DiffFile) {
   return "No textual hunks to render for this file.";
 }
 
-/** Render collapsed and hunk-header rows, including the optional AI badge target. */
+/** Render collapsed and hunk-header rows, including the optional add-note target. */
 function renderHeaderRow(
   row: Extract<DiffRow, { type: "collapsed" | "hunk-header" }>,
   width: number,
@@ -458,16 +459,9 @@ function renderHeaderRow(
   showAddNoteBadge = false,
   onHoverRow?: (rowKey: string) => void,
   onOpenAgentNotesAtHunk?: (hunkIndex: number) => void,
-  onStartUserNoteAtHunk?: (hunkIndex: number) => void,
+  onStartUserNoteAtHunk?: (hunkIndex: number, target?: UserNoteLineTarget) => void,
 ) {
   const badges = [
-    annotated
-      ? {
-          key: "agent",
-          text: "[AI]",
-          onClick: () => onOpenAgentNotesAtHunk?.(row.hunkIndex),
-        }
-      : null,
     showAddNoteBadge
       ? {
           key: "user-note",
@@ -558,13 +552,14 @@ function renderAddNoteButton(
   key: string,
   theme: AppTheme,
   hunkIndex: number,
-  onStartUserNoteAtHunk?: (hunkIndex: number) => void,
+  target: UserNoteLineTarget | undefined,
+  onStartUserNoteAtHunk?: (hunkIndex: number, target?: UserNoteLineTarget) => void,
 ) {
   return (
     <box
       key={key}
       style={{ width: addNoteBadgeText.length, height: 1 }}
-      onMouseUp={() => onStartUserNoteAtHunk?.(hunkIndex)}
+      onMouseUp={() => onStartUserNoteAtHunk?.(hunkIndex, target)}
     >
       <text fg={theme.noteTitleText} bg={theme.noteTitleBackground}>
         {addNoteBadgeText}
@@ -654,7 +649,7 @@ function renderRow(
   showAddNoteBadge = false,
   onHoverRow?: (rowKey: string) => void,
   onOpenAgentNotesAtHunk?: (hunkIndex: number) => void,
-  onStartUserNoteAtHunk?: (hunkIndex: number) => void,
+  onStartUserNoteAtHunk?: (hunkIndex: number, target?: UserNoteLineTarget) => void,
 ) {
   let baseRow: ReactNode;
 
@@ -689,6 +684,12 @@ function renderRow(
   } else if (row.type === "split-line") {
     const guideOnOldSide = noteGuideSide === "old";
     const guideOnNewSide = noteGuideSide === "new";
+    const addNoteTarget: UserNoteLineTarget | undefined =
+      row.right.lineNumber !== undefined
+        ? { side: "new", line: row.right.lineNumber }
+        : row.left.lineNumber !== undefined
+          ? { side: "old", line: row.left.lineNumber }
+          : undefined;
 
     // Reserve fixed columns for the diff rails, center separator slot, and hover affordance.
     const addBadgeWidth = showAddNoteBadge ? addNoteBadgeText.length : 0;
@@ -751,6 +752,7 @@ function renderRow(
                 `${row.key}:add-note`,
                 theme,
                 row.hunkIndex,
+                addNoteTarget,
                 onStartUserNoteAtHunk,
               )
             : null}
@@ -838,6 +840,7 @@ function renderRow(
                       `${row.key}:add-note:${index}`,
                       theme,
                       row.hunkIndex,
+                      addNoteTarget,
                       onStartUserNoteAtHunk,
                     )
                   : null}
@@ -850,6 +853,12 @@ function renderRow(
   } else if (row.type === "stack-line") {
     const guideOnOldSide = noteGuideSide === "old";
     const guideOnNewSide = noteGuideSide === "new";
+    const addNoteTarget: UserNoteLineTarget | undefined =
+      row.cell.newLineNumber !== undefined
+        ? { side: "new", line: row.cell.newLineNumber }
+        : row.cell.oldLineNumber !== undefined
+          ? { side: "old", line: row.cell.oldLineNumber }
+          : undefined;
     const addBadgeWidth = showAddNoteBadge ? addNoteBadgeText.length : 0;
     const contentWidth = Math.max(0, width - (guideOnNewSide ? 1 : 0) - addBadgeWidth);
     const prefix = {
@@ -894,6 +903,7 @@ function renderRow(
                 `${row.key}:add-note`,
                 theme,
                 row.hunkIndex,
+                addNoteTarget,
                 onStartUserNoteAtHunk,
               )
             : null}
@@ -951,6 +961,7 @@ function renderRow(
                       `${row.key}:add-note:${index}`,
                       theme,
                       row.hunkIndex,
+                      addNoteTarget,
                       onStartUserNoteAtHunk,
                     )
                   : null}
@@ -987,7 +998,7 @@ interface DiffRowViewProps {
   showAddNoteBadge?: boolean;
   onHoverRow?: (rowKey: string) => void;
   onOpenAgentNotesAtHunk?: (hunkIndex: number) => void;
-  onStartUserNoteAtHunk?: (hunkIndex: number) => void;
+  onStartUserNoteAtHunk?: (hunkIndex: number, target?: UserNoteLineTarget) => void;
 }
 
 /** Render one diff row, memoized to avoid unnecessary rerenders. */

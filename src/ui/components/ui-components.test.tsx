@@ -496,7 +496,7 @@ describe("UI components", () => {
     expect(frame).toContain("beta.ts");
     expect(frame).toContain("@@ -1,1 +1,2 @@");
     expect(frame).toContain("@@ -1,1 +1,1 @@");
-    expect(frame).toContain("[AI]");
+    expect(frame).not.toContain("[AI]");
     expect(frame.indexOf("alpha.ts")).toBeLessThan(frame.indexOf("beta.ts"));
   });
 
@@ -551,7 +551,7 @@ describe("UI components", () => {
       await act(async () => {
         await setup.mockMouse.click(addNoteX + 1, addNoteY);
       });
-      expect(startUserNote).toHaveBeenCalledWith(0);
+      expect(startUserNote).toHaveBeenCalledWith(0, { side: "new", line: 2 });
     } finally {
       await act(async () => {
         setup.renderer.destroy();
@@ -1179,7 +1179,8 @@ describe("UI components", () => {
       await settleDiffPane(setup);
       const frame = setup.captureCharFrame();
 
-      expect(frame).toContain("Keep the selected hunk visible with its note.");
+      expect(frame).toContain("Keep the selected hunk visible with its");
+      expect(frame).toContain("note.");
       expect(frame).toContain("11   export const line11 = 11;");
       expect(frame).toContain("16 + export const line16 = 1600;");
       expect(frame).toContain("export const line19 = 19;");
@@ -1381,7 +1382,7 @@ describe("UI components", () => {
     expect(lines[0]).toContain("┌");
     expect(lines[1]).toContain("│ Draft note - src/core/cli.ts R611 │");
     expect(lines[2]).toContain("┴");
-    expect(frame).toContain("│ my comment. I think we should think");
+    expect(frame).toContain("│ Here's my comment. I think we should think");
     expect(frame).toContain("│ Save │ Cancel │");
     expect(frame).toContain("└──────┴────────┘");
   });
@@ -2313,7 +2314,7 @@ describe("UI components", () => {
     }
   });
 
-  test("App renders the menu bar, multi-file stream, and AI badges", async () => {
+  test("App renders the menu bar and multi-file stream", async () => {
     const bootstrap = createBootstrap();
     const frame = await captureFrame(<AppHost bootstrap={bootstrap} />, 280, 24);
 
@@ -2322,7 +2323,7 @@ describe("UI components", () => {
     expect(frame).toContain("beta.ts");
     expect(frame).toContain("@@ -1,1 +1,2 @@");
     expect(frame).toContain("@@ -1,1 +1,1 @@");
-    expect(frame).toContain("[AI]");
+    expect(frame).not.toContain("[AI]");
     expect(frame).not.toContain("Changeset summary");
   });
 });

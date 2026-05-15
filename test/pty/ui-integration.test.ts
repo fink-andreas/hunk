@@ -147,13 +147,15 @@ describe("live UI integration", () => {
         timeout: 15_000,
       });
 
-      await session.press("i");
+      await session.press("c");
       await session.waitForText(/Draft note/, { timeout: 5_000 });
       await session.type("Please cover this edge case.");
-      await session.press("enter");
+      await session.type("\x0aSecond line.");
+      await session.type("\x13");
 
       const savedNote = await session.waitForText(/Your note/, { timeout: 5_000 });
       expect(savedNote).toContain("Please cover this edge case.");
+      expect(savedNote).toContain("Second line.");
     } finally {
       session.close();
     }

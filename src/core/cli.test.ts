@@ -301,6 +301,79 @@ describe("parseCli", () => {
     });
   });
 
+  test("parses session review with live notes included", async () => {
+    const parsed = await parseCli([
+      "bun",
+      "hunk",
+      "session",
+      "review",
+      "session-1",
+      "--include-notes",
+      "--json",
+    ]);
+
+    expect(parsed).toMatchObject({
+      kind: "session",
+      action: "review",
+      selector: { sessionId: "session-1" },
+      output: "json",
+      includePatch: false,
+      includeNotes: true,
+    });
+  });
+
+  test("parses session note commands", async () => {
+    await expect(
+      parseCli([
+        "bun",
+        "hunk",
+        "session",
+        "note",
+        "list",
+        "--repo",
+        ".",
+        "--file",
+        "README.md",
+        "--source",
+        "user",
+        "--json",
+      ]),
+    ).resolves.toEqual({
+      kind: "session",
+      action: "note-list",
+      selector: { repoRoot: process.cwd() },
+      filePath: "README.md",
+      source: "user",
+      output: "json",
+    });
+
+    await expect(
+      parseCli(["bun", "hunk", "session", "note", "get", "session-1", "user:1"]),
+    ).resolves.toEqual({
+      kind: "session",
+      action: "note-get",
+      selector: { sessionId: "session-1" },
+      noteId: "user:1",
+      output: "text",
+    });
+
+    await expect(
+      parseCli(["bun", "hunk", "session", "note", "rm", "--repo", ".", "user:1"]),
+    ).resolves.toEqual({
+      kind: "session",
+      action: "note-rm",
+      selector: { repoRoot: process.cwd() },
+      noteId: "user:1",
+      output: "text",
+    });
+  });
+
+  test("rejects session note list with an unsupported source", async () => {
+    await expect(
+      parseCli(["bun", "hunk", "session", "note", "list", "session-1", "--source", "robot"]),
+    ).rejects.toThrow("Note source must be one of ai, agent, or user.");
+  });
+
   test("parses session navigate by hunk number", async () => {
     const parsed = await parseCli([
       "bun",

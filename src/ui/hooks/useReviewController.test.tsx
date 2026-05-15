@@ -497,6 +497,8 @@ describe("useReviewController", () => {
           noteId: savedNoteId,
           source: "user",
           filePath: "alpha.ts",
+          hunkIndex: 0,
+          newRange: [1, 1],
           body: "Please add a regression test.",
           editable: true,
         },

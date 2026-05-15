@@ -10,7 +10,7 @@ import {
   type RefObject,
 } from "react";
 import type { AgentAnnotation, DiffFile, LayoutMode } from "../../../core/types";
-import type { DraftReviewNote } from "../../hooks/useReviewController";
+import type { DraftReviewNote, UserNoteLineTarget } from "../../hooks/useReviewController";
 import {
   alwaysShowReviewNote,
   reviewNoteSource,
@@ -192,7 +192,7 @@ export function DiffPane({
   onOpenAgentNotesAtHunk: (fileId: string, hunkIndex: number) => void;
   onRemoveUserNote?: (noteId: string) => void;
   onSaveDraftNote?: () => void;
-  onStartUserNoteAtHunk?: (fileId: string, hunkIndex: number) => void;
+  onStartUserNoteAtHunk?: (fileId: string, hunkIndex: number, target?: UserNoteLineTarget) => void;
   onUpdateDraftNote?: (body: string) => void;
   onCancelDraftNote?: () => void;
   onScrollCodeHorizontally?: (delta: number) => void;
@@ -331,12 +331,14 @@ export function DiffPane({
   // other files can still use placeholders and viewport windowing.
   const windowingEnabled = !wrapLines;
   const [scrollViewport, setScrollViewport] = useState({ top: 0, height: 0 });
+  const [hoveredFileId, setHoveredFileId] = useState<string | null>(null);
   const scrollbarRef = useRef<VerticalScrollbarHandle>(null);
   const prevScrollTopRef = useRef(0);
   const previousSectionGeometryRef = useRef<DiffSectionGeometry[] | null>(null);
   const previousFilesRef = useRef<DiffFile[]>(files);
   const previousLayoutRef = useRef(layout);
   const previousWrapLinesRef = useRef(wrapLines);
+  const previousDraftNoteIdRef = useRef(draftNote?.id ?? null);
   const previousSelectedFileTopAlignRequestIdRef = useRef(selectedFileTopAlignRequestId);
   const previousLayoutToggleRequestIdRef = useRef(layoutToggleRequestId);
   const previousSelectedHunkRevealRequestIdRef = useRef(selectedHunkRevealRequestId);
@@ -843,6 +845,48 @@ export function DiffPane({
     const wrapChanged = previousWrapLinesRef.current !== wrapLines;
     const previousSectionMetrics = previousSectionGeometryRef.current;
     const previousFiles = previousFilesRef.current;
+    const currentDraftNoteId = draftNote?.id ?? null;
+    const draftChanged = previousDraftNoteIdRef.current !== currentDraftNoteId;
+
+    if (draftChanged && previousSectionMetrics && previousFiles.length > 0) {
+      const previousScrollTop = scrollRef.current?.scrollTop ?? scrollViewport.top;
+      const anchor =
+        lastViewportRowAnchorRef.current ??
+        findViewportRowAnchor(
+          previousFiles,
+          previousSectionMetrics,
+          previousScrollTop,
+          buildInStreamFileHeaderHeights(previousFiles),
+        );
+      if (anchor) {
+        const nextTop = resolveViewportRowAnchorTop(
+          files,
+          sectionGeometry,
+          anchor,
+          sectionHeaderHeights,
+        );
+        const restoreViewportAnchor = () => {
+          scrollRef.current?.scrollTo(nextTop);
+        };
+
+        lastViewportRowAnchorRef.current = anchor;
+        suppressViewportSelectionSync();
+        restoreViewportAnchor();
+        const retryDelays = [0, 16, 48];
+        const timeouts = retryDelays.map((delay) => setTimeout(restoreViewportAnchor, delay));
+
+        previousDraftNoteIdRef.current = currentDraftNoteId;
+        previousLayoutRef.current = layout;
+        previousLayoutToggleRequestIdRef.current = layoutToggleRequestId;
+        previousWrapLinesRef.current = wrapLines;
+        previousSectionGeometryRef.current = sectionGeometry;
+        previousFilesRef.current = files;
+
+        return () => {
+          timeouts.forEach((timeout) => clearTimeout(timeout));
+        };
+      }
+    }
 
     if ((layoutChanged || wrapChanged) && previousSectionMetrics && previousFiles.length > 0) {
       const previousSectionHeaderHeights = buildInStreamFileHeaderHeights(previousFiles);
@@ -893,12 +937,14 @@ export function DiffPane({
       }
     }
 
+    previousDraftNoteIdRef.current = currentDraftNoteId;
     previousLayoutRef.current = layout;
     previousLayoutToggleRequestIdRef.current = layoutToggleRequestId;
     previousWrapLinesRef.current = wrapLines;
     previousSectionGeometryRef.current = sectionGeometry;
     previousFilesRef.current = files;
   }, [
+    draftNote?.id,
     files,
     layout,
     layoutToggleRequestId,
@@ -1229,6 +1275,7 @@ export function DiffPane({
                       showHunkHeaders={showHunkHeaders}
                       wrapLines={wrapLines}
                       theme={theme}
+                      hoverActive={hoveredFileId === null || hoveredFileId === file.id}
                       viewWidth={diffContentWidth}
                       visibleAgentNotes={
                         visibleAgentNotesByFile.get(file.id) ?? EMPTY_VISIBLE_AGENT_NOTES
@@ -1237,8 +1284,9 @@ export function DiffPane({
                       onOpenAgentNotesAtHunk={(hunkIndex) =>
                         onOpenAgentNotesAtHunk(file.id, hunkIndex)
                       }
-                      onStartUserNoteAtHunk={(hunkIndex) =>
-                        onStartUserNoteAtHunk?.(file.id, hunkIndex)
+                      onHover={() => setHoveredFileId(file.id)}
+                      onStartUserNoteAtHunk={(hunkIndex, target) =>
+                        onStartUserNoteAtHunk?.(file.id, hunkIndex, target)
                       }
                       onSelect={() => onSelectFile(file.id)}
                     />

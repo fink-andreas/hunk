@@ -78,6 +78,11 @@ export interface UserReviewNote extends AgentAnnotation {
   editable: true;
 }
 
+export interface UserNoteLineTarget {
+  side: "old" | "new";
+  line: number;
+}
+
 export interface DraftReviewNote {
   id: string;
   fileId: string;
@@ -140,7 +145,11 @@ export interface ReviewController {
   saveDraftNote: () => UserReviewNote | null;
   selectFile: (fileId: string, nextHunkIndex?: number, options?: ReviewSelectionOptions) => void;
   selectHunk: (fileId: string, hunkIndex: number, options?: ReviewSelectionOptions) => void;
-  startUserNote: (fileId?: string, hunkIndex?: number) => DraftReviewNote | null;
+  startUserNote: (
+    fileId?: string,
+    hunkIndex?: number,
+    target?: UserNoteLineTarget,
+  ) => DraftReviewNote | null;
   setFilter: (value: string) => void;
   updateDraftNote: (body: string) => void;
 }
@@ -549,14 +558,18 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
 
   /** Start a human-authored draft note at the selected or requested hunk. */
   const startUserNote = useCallback(
-    (fileId = selectedFile?.id, hunkIndex = selectedHunkIndex): DraftReviewNote | null => {
+    (
+      fileId = selectedFile?.id,
+      hunkIndex = selectedHunkIndex,
+      requestedTarget?: UserNoteLineTarget,
+    ): DraftReviewNote | null => {
       const file = allFiles.find((candidate) => candidate.id === fileId);
       const hunk = file?.metadata.hunks[hunkIndex];
       if (!file || !hunk) {
         return null;
       }
 
-      const target = firstCommentTargetForHunk(hunk);
+      const target = requestedTarget ?? firstCommentTargetForHunk(hunk);
       const draft: DraftReviewNote = {
         id: `draft:${file.id}:${hunkIndex}:${Date.now()}`,
         fileId: file.id,
@@ -569,7 +582,11 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
         body: "",
       };
       setDraftNote(draft);
-      selectHunk(file.id, hunkIndex, { scrollToNote: true });
+      selectHunk(
+        file.id,
+        hunkIndex,
+        requestedTarget ? { preserveViewport: true } : { scrollToNote: true },
+      );
       return draft;
     },
     [allFiles, selectHunk, selectedFile?.id, selectedHunkIndex],
