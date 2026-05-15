@@ -221,13 +221,11 @@ export function AgentInlineNote({
     const draftContentWidth = Math.max(1, draftInnerWidth - 2);
     const saveInnerWidth = 6;
     const cancelInnerWidth = 8;
-    const footerRemainderWidth = Math.max(
-      0,
-      boxWidth - (1 + saveInnerWidth + 1 + cancelInnerWidth + 1 + 1),
-    );
-    const footerWidth = 1 + saveInnerWidth + 1 + cancelInnerWidth + 1;
+    const footerRemainderWidth = Math.max(0, boxWidth - saveInnerWidth - cancelInnerWidth - 4);
     const draftTopBorderSuffix = `${"─".repeat(Math.max(0, boxWidth - 3 - draftTitleText.length))}╮`;
-    const draftActionBorder = `├${"─".repeat(saveInnerWidth)}┬${"─".repeat(cancelInnerWidth)}┬${"─".repeat(footerRemainderWidth)}╯`;
+    const footerButtonWidth = 1 + saveInnerWidth + 1 + cancelInnerWidth + 1;
+    const footerButtonLeft = boxLeft + footerRemainderWidth + 1;
+    const draftActionBorder = `╰${"─".repeat(footerRemainderWidth)}┬${"─".repeat(saveInnerWidth)}┬${"─".repeat(cancelInnerWidth)}┤`;
     const draftButtonBottom = `╰${"─".repeat(saveInnerWidth)}┴${"─".repeat(cancelInnerWidth)}╯`;
     const draftTextareaRows = draftVisibleLineCount;
     const draftTopPaddingRows = 1;
@@ -384,8 +382,8 @@ export function AgentInlineNote({
         <box
           style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
         >
-          <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-            <text>{" ".repeat(boxLeft)}</text>
+          <box style={{ width: footerButtonLeft, height: 1, backgroundColor: theme.panel }}>
+            <text>{" ".repeat(footerButtonLeft)}</text>
           </box>
           <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
             <text fg={theme.noteBorder} bg={theme.panel}>
@@ -417,10 +415,10 @@ export function AgentInlineNote({
         <box
           style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
         >
-          <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-            <text>{" ".repeat(boxLeft)}</text>
+          <box style={{ width: footerButtonLeft, height: 1, backgroundColor: theme.panel }}>
+            <text>{" ".repeat(footerButtonLeft)}</text>
           </box>
-          <box style={{ width: footerWidth, height: 1, backgroundColor: theme.panel }}>
+          <box style={{ width: footerButtonWidth, height: 1, backgroundColor: theme.panel }}>
             <text fg={theme.noteBorder} bg={theme.panel}>
               {draftButtonBottom}
             </text>

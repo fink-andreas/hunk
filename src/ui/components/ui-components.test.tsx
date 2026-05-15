@@ -1384,7 +1384,10 @@ describe("UI components", () => {
     expect(lines[1]).toContain("│                                              │");
     expect(lines[2]).toContain("│ Here's my comment. I think we should think");
     expect(lines[3]).toContain("│                                              │");
-    expect(frame).toContain("│ Save │ Cancel │");
+    const saveLine = lines.find((line) => line.includes("│ Save │ Cancel │"));
+    expect(saveLine).toBeDefined();
+    expect(saveLine!.indexOf("Save")).toBeGreaterThan(lines[2]!.indexOf("Here's"));
+    expect(frame).toContain("┬──────┬────────┤");
     expect(frame).toContain("╰──────┴────────╯");
   });
 
