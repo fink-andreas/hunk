@@ -1023,12 +1023,12 @@ describe("App interactions", () => {
       await flush(setup);
 
       const frame = setup.captureCharFrame();
-      expect(frame).toContain("AI note · prefs.ts R2");
+      expect(frame).toContain("AI note - prefs.ts R2");
       expect(frame).toContain("Annotation for prefs.ts");
       expect(frame).toContain("Why prefs.ts changed");
       expect(frame).not.toContain("@@ -1,1 +1,2 @@");
       expect(frame).not.toContain("1 - export const message");
-      expect(frame.indexOf("AI note · prefs.ts R2")).toBeLessThan(
+      expect(frame.indexOf("AI note - prefs.ts R2")).toBeLessThan(
         frame.indexOf("export const added = true;"),
       );
     } finally {

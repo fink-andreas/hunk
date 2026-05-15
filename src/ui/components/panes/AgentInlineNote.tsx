@@ -1,5 +1,5 @@
 import type { TextareaRenderable } from "@opentui/core";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AgentAnnotation, DiffFile, LayoutMode } from "../../../core/types";
 import { isEscapeKey } from "../../lib/keyboard";
 import { wrapText } from "../../lib/agentPopover";
@@ -24,6 +24,26 @@ interface AgentInlineNoteLine {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function draftLineCount(text: string) {
+  return Math.max(1, text.split("\n").length);
+}
+
+function isNewlineKey(key: { ctrl?: boolean; name?: string; sequence?: string }) {
+  return (
+    key.name === "return" ||
+    key.name === "enter" ||
+    key.name === "linefeed" ||
+    key.sequence === "\r" ||
+    key.sequence === "\n" ||
+    (key.ctrl && key.name === "j")
+  );
+}
+
+/** Wrap text while preserving author-entered line breaks in review notes. */
+function wrapNoteText(text: string, width: number) {
+  return text.split("\n").flatMap((line) => wrapText(line, width));
 }
 
 function splitColumnWidths(width: number) {
@@ -59,12 +79,12 @@ export function measureAgentInlineNoteHeight({
   const bodyWidth = innerWidth;
   const contentWidth = Math.max(1, bodyWidth - 2);
   const lines: AgentInlineNoteLine[] = [
-    ...wrapText(annotation.summary, contentWidth).map((text) => ({
+    ...wrapNoteText(annotation.summary, contentWidth).map((text) => ({
       kind: "summary" as const,
       text,
     })),
     ...(annotation.rationale
-      ? wrapText(annotation.rationale, contentWidth).map((text) => ({
+      ? wrapNoteText(annotation.rationale, contentWidth).map((text) => ({
           kind: "rationale" as const,
           text,
         }))
@@ -72,8 +92,9 @@ export function measureAgentInlineNoteHeight({
   ];
 
   if (annotation.source === "user-draft") {
-    // Title cap + connector + three-line body + button footer.
-    return 9;
+    const draftBodyRows = Math.max(3, draftLineCount(annotation.summary) + 2);
+    // Title border + expandable body + button footer.
+    return 1 + draftBodyRows + 3;
   }
 
   // top border + title row + body lines + bottom border
@@ -111,9 +132,16 @@ export function AgentInlineNote({
   width: number;
 }) {
   const textareaRef = useRef<TextareaRenderable | null>(null);
+  const [draftLineCountHint, setDraftLineCountHint] = useState(() =>
+    draftLineCount(draft?.body ?? ""),
+  );
+
+  useEffect(() => {
+    setDraftLineCountHint(draftLineCount(draft?.body ?? ""));
+  }, [draft?.body]);
+
   const closeText = onClose ? "[x]" : "";
-  const titleSeparator = annotation.source === "user-draft" ? " - " : " · ";
-  const titleText = `${inlineNoteTitle(annotation, noteIndex, noteCount)}${titleSeparator}${annotationRangeLabel(annotation, file)}`;
+  const titleText = `${inlineNoteTitle(annotation, noteIndex, noteCount)} - ${annotationRangeLabel(annotation, file)}`;
   const splitWidths = splitColumnWidths(width);
   const canDockRight = layout === "split" && anchorSide === "new" && width >= 84;
   const canDockLeft = layout === "split" && anchorSide === "old" && width >= 84;
@@ -129,38 +157,38 @@ export function AgentInlineNote({
       ? 0
       : Math.min(4, Math.max(0, width - boxWidth));
   const innerWidth = Math.max(1, boxWidth - 2);
-  const titleSidePadding = 1;
   const closeGapWidth = closeText ? 1 : 0;
   const closeWidth = closeText.length;
-  const titleWidth = Math.max(1, innerWidth - titleSidePadding * 2 - closeGapWidth - closeWidth);
   const bodyWidth = innerWidth;
   const contentWidth = Math.max(1, bodyWidth - 2);
   const lines: AgentInlineNoteLine[] = [
-    ...wrapText(annotation.summary, contentWidth).map((text) => ({
+    ...wrapNoteText(annotation.summary, contentWidth).map((text) => ({
       kind: "summary" as const,
       text,
     })),
     ...(annotation.rationale
-      ? wrapText(annotation.rationale, contentWidth).map((text) => ({
+      ? wrapNoteText(annotation.rationale, contentWidth).map((text) => ({
           kind: "rationale" as const,
           text,
         }))
       : []),
   ];
-  const topBorder = `┌${"─".repeat(Math.max(0, boxWidth - 2))}┐`;
-  const bottomBorder =
-    anchorSide === "new" && canDockRight
-      ? `└${"─".repeat(Math.max(0, boxWidth - 2))}┤`
-      : anchorSide === "old" && canDockLeft
-        ? `├${"─".repeat(Math.max(0, boxWidth - 2))}┘`
-        : `└${"─".repeat(Math.max(0, boxWidth - 2))}┘`;
+  const savedTitleText = fitText(
+    ` ${titleText} `,
+    Math.max(0, boxWidth - 4 - closeGapWidth - closeWidth),
+  );
+  const savedTopBorderSuffixWidth = Math.max(
+    0,
+    boxWidth - 3 - savedTitleText.length - closeGapWidth - closeWidth,
+  );
+  const savedTopPrefixWidth = 2 + savedTitleText.length + savedTopBorderSuffixWidth;
+  const bottomBorder = `╰${"─".repeat(Math.max(0, boxWidth - 2))}╯`;
 
   if (draft) {
-    const draftBodyRows = 3;
-    const draftTitleBoxWidth = clamp(titleText.length + 4, 16, boxWidth);
+    const draftVisibleLineCount = Math.max(draftLineCountHint, draftLineCount(draft.body));
+    const draftTitleText = fitText(` ${titleText} `, Math.max(0, boxWidth - 4));
     const draftInnerWidth = Math.max(1, boxWidth - 2);
     const draftContentWidth = Math.max(1, draftInnerWidth - 2);
-    const connectorRightWidth = Math.max(0, boxWidth - draftTitleBoxWidth - 1);
     const saveInnerWidth = 6;
     const cancelInnerWidth = 8;
     const footerRemainderWidth = Math.max(
@@ -168,10 +196,38 @@ export function AgentInlineNote({
       boxWidth - (1 + saveInnerWidth + 1 + cancelInnerWidth + 1 + 1),
     );
     const footerWidth = 1 + saveInnerWidth + 1 + cancelInnerWidth + 1;
-    const draftTopBorder = `┌${"─".repeat(Math.max(0, draftTitleBoxWidth - 2))}┐`;
-    const draftConnector = `├${"─".repeat(Math.max(0, draftTitleBoxWidth - 2))}┴${"─".repeat(connectorRightWidth)}┐`;
-    const draftActionBorder = `├${"─".repeat(saveInnerWidth)}┬${"─".repeat(cancelInnerWidth)}┬${"─".repeat(footerRemainderWidth)}┘`;
-    const draftButtonBottom = `└${"─".repeat(saveInnerWidth)}┴${"─".repeat(cancelInnerWidth)}┘`;
+    const draftTopBorderSuffix = `${"─".repeat(Math.max(0, boxWidth - 3 - draftTitleText.length))}╮`;
+    const draftActionBorder = `├${"─".repeat(saveInnerWidth)}┬${"─".repeat(cancelInnerWidth)}┬${"─".repeat(footerRemainderWidth)}╯`;
+    const draftButtonBottom = `╰${"─".repeat(saveInnerWidth)}┴${"─".repeat(cancelInnerWidth)}╯`;
+    const draftTextareaRows = draftVisibleLineCount;
+    const draftTopPaddingRows = 1;
+    const draftBottomPaddingRows = 1;
+    const renderDraftBodyPaddingRows = (keyPrefix: string, rowCount: number) =>
+      Array.from({ length: rowCount }, (_, rowIndex) => (
+        <box
+          key={`${keyPrefix}:${rowIndex}`}
+          style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
+        >
+          <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
+            <text>{" ".repeat(boxLeft)}</text>
+          </box>
+          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
+              │
+            </text>
+          </box>
+          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }} />
+          <box style={{ width: draftContentWidth, height: 1, backgroundColor: theme.panel }}>
+            <text bg={theme.panel}>{" ".repeat(draftContentWidth)}</text>
+          </box>
+          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }} />
+          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
+              │
+            </text>
+          </box>
+        </box>
+      ));
 
     return (
       <box style={{ width: "100%", flexDirection: "column", backgroundColor: theme.panel }}>
@@ -181,99 +237,75 @@ export function AgentInlineNote({
           <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
             <text>{" ".repeat(boxLeft)}</text>
           </box>
-          <box style={{ width: draftTitleBoxWidth, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
-              {draftTopBorder}
-            </text>
-          </box>
-        </box>
-
-        <box
-          style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
-        >
-          <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-            <text>{" ".repeat(boxLeft)}</text>
-          </box>
-          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
-              │
-            </text>
-          </box>
-          <box
-            style={{
-              width: Math.max(0, draftTitleBoxWidth - 2),
-              height: 1,
-              backgroundColor: theme.panel,
-            }}
-          >
-            <text fg={theme.noteTitleText} bg={theme.noteTitleBackground}>
-              {padText(fitText(` ${titleText} `, draftTitleBoxWidth - 2), draftTitleBoxWidth - 2)}
-            </text>
-          </box>
-          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
-              │
-            </text>
-          </box>
-        </box>
-
-        <box
-          style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
-        >
-          <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-            <text>{" ".repeat(boxLeft)}</text>
-          </box>
           <box style={{ width: boxWidth, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
-              {draftConnector}
+            <text>
+              <span fg={theme.noteBorder} bg={theme.panel}>
+                ╭─
+              </span>
+              <span fg={theme.noteTitleText} bg={theme.panel}>
+                {draftTitleText}
+              </span>
+              <span fg={theme.noteBorder} bg={theme.panel}>
+                {draftTopBorderSuffix}
+              </span>
             </text>
           </box>
         </box>
+
+        {renderDraftBodyPaddingRows("draft-body-top-padding", draftTopPaddingRows)}
 
         <box
           style={{
             width: "100%",
-            height: draftBodyRows,
+            height: draftTextareaRows,
             flexDirection: "row",
             backgroundColor: theme.panel,
           }}
         >
-          <box style={{ width: boxLeft, height: draftBodyRows, backgroundColor: theme.panel }} />
+          <box
+            style={{ width: boxLeft, height: draftTextareaRows, backgroundColor: theme.panel }}
+          />
           <box
             style={{
               width: 1,
-              height: draftBodyRows,
+              height: draftTextareaRows,
               flexDirection: "column",
               backgroundColor: theme.panel,
             }}
           >
-            {Array.from({ length: draftBodyRows }, (_, rowIndex) => (
+            {Array.from({ length: draftTextareaRows }, (_, rowIndex) => (
               <text
-                key={`draft-left-border:${rowIndex}`}
+                key={`draft-textarea-left-border:${rowIndex}`}
                 fg={theme.noteBorder}
-                bg={theme.noteBackground}
+                bg={theme.panel}
               >
                 │
               </text>
             ))}
           </box>
-          <box style={{ width: 1, height: draftBodyRows, backgroundColor: theme.noteBackground }} />
+          <box style={{ width: 1, height: draftTextareaRows, backgroundColor: theme.panel }} />
           <textarea
             ref={textareaRef}
             width={draftContentWidth}
-            height={draftBodyRows}
+            height={draftTextareaRows}
             initialValue={draft.body}
             placeholder="Write a note…"
             focused={draft.focused}
-            backgroundColor={theme.noteBackground}
+            backgroundColor={theme.panel}
             textColor={theme.text}
-            focusedBackgroundColor={theme.noteBackground}
+            focusedBackgroundColor={theme.panel}
             focusedTextColor={theme.text}
             keyBindings={[{ name: "j", ctrl: true, action: "newline" }]}
             onContentChange={() => {
-              draft.onInput(textareaRef.current?.getTextRange(0, 100000) ?? "");
+              const nextBody = textareaRef.current?.getTextRange(0, 100000) ?? "";
+              setDraftLineCountHint(draftLineCount(nextBody));
+              draft.onInput(nextBody);
             }}
             onKeyDown={(key) => {
+              if (isNewlineKey(key)) {
+                setDraftLineCountHint((current) => current + 1);
+              }
+
               if (isEscapeKey(key)) {
                 key.preventDefault();
                 key.stopPropagation();
@@ -281,26 +313,28 @@ export function AgentInlineNote({
               }
             }}
           />
-          <box style={{ width: 1, height: draftBodyRows, backgroundColor: theme.noteBackground }} />
+          <box style={{ width: 1, height: draftTextareaRows, backgroundColor: theme.panel }} />
           <box
             style={{
               width: 1,
-              height: draftBodyRows,
+              height: draftTextareaRows,
               flexDirection: "column",
               backgroundColor: theme.panel,
             }}
           >
-            {Array.from({ length: draftBodyRows }, (_, rowIndex) => (
+            {Array.from({ length: draftTextareaRows }, (_, rowIndex) => (
               <text
-                key={`draft-right-border:${rowIndex}`}
+                key={`draft-textarea-right-border:${rowIndex}`}
                 fg={theme.noteBorder}
-                bg={theme.noteBackground}
+                bg={theme.panel}
               >
                 │
               </text>
             ))}
           </box>
         </box>
+
+        {renderDraftBodyPaddingRows("draft-body-bottom-padding", draftBottomPaddingRows)}
 
         <box
           style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
@@ -309,7 +343,7 @@ export function AgentInlineNote({
             <text>{" ".repeat(boxLeft)}</text>
           </box>
           <box style={{ width: boxWidth, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
               {draftActionBorder}
             </text>
           </box>
@@ -322,27 +356,27 @@ export function AgentInlineNote({
             <text>{" ".repeat(boxLeft)}</text>
           </box>
           <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
               │
             </text>
           </box>
           <box onMouseUp={draft.onSave} style={{ width: saveInnerWidth, height: 1 }}>
-            <text fg={theme.noteTitleText} bg={theme.noteTitleBackground}>
+            <text fg={theme.noteTitleText} bg={theme.panel}>
               {padText(" Save", saveInnerWidth)}
             </text>
           </box>
           <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
               │
             </text>
           </box>
           <box onMouseUp={draft.onCancel} style={{ width: cancelInnerWidth, height: 1 }}>
-            <text fg={theme.noteTitleText} bg={theme.noteBackground}>
+            <text fg={theme.noteTitleText} bg={theme.panel}>
               {padText(" Cancel", cancelInnerWidth)}
             </text>
           </box>
           <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
               │
             </text>
           </box>
@@ -355,7 +389,7 @@ export function AgentInlineNote({
             <text>{" ".repeat(boxLeft)}</text>
           </box>
           <box style={{ width: footerWidth, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
+            <text fg={theme.noteBorder} bg={theme.panel}>
               {draftButtonBottom}
             </text>
           </box>
@@ -364,39 +398,56 @@ export function AgentInlineNote({
     );
   }
 
+  const renderSavedBodyRow = (key: string, text: string, kind: AgentInlineNoteLine["kind"]) => (
+    <box
+      key={key}
+      style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
+    >
+      <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
+        <text>{" ".repeat(boxLeft)}</text>
+      </box>
+      <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+        <text fg={theme.noteBorder} bg={theme.panel}>
+          │
+        </text>
+      </box>
+      <box style={{ width: 1, height: 1, backgroundColor: theme.panel }} />
+      <box style={{ width: contentWidth, height: 1, backgroundColor: theme.panel }}>
+        <text fg={kind === "summary" ? theme.text : theme.muted} bg={theme.panel}>
+          {padText(text, contentWidth)}
+        </text>
+      </box>
+      <box style={{ width: 1, height: 1, backgroundColor: theme.panel }} />
+      <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+        <text fg={theme.noteBorder} bg={theme.panel}>
+          │
+        </text>
+      </box>
+    </box>
+  );
+
   return (
     <box style={{ width: "100%", flexDirection: "column", backgroundColor: theme.panel }}>
       <box style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}>
         <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
           <text>{" ".repeat(boxLeft)}</text>
         </box>
-        <box style={{ width: boxWidth, height: 1, backgroundColor: theme.panel }}>
-          <text fg={theme.noteBorder} bg={theme.noteBackground}>
-            {topBorder}
-          </text>
-        </box>
-      </box>
-
-      <box style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}>
-        <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-          <text>{" ".repeat(boxLeft)}</text>
-        </box>
-        <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-          <text fg={theme.noteBorder} bg={theme.noteBackground}>
-            │
-          </text>
-        </box>
-        <box style={{ width: titleSidePadding, height: 1, backgroundColor: theme.panel }}>
-          <text bg={theme.noteBackground}>{" ".repeat(titleSidePadding)}</text>
-        </box>
-        <box style={{ width: titleWidth, height: 1, backgroundColor: theme.panel }}>
-          <text fg={theme.noteTitleText} bg={theme.noteTitleBackground}>
-            {padText(fitText(titleText, titleWidth), titleWidth)}
+        <box style={{ width: savedTopPrefixWidth, height: 1, backgroundColor: theme.panel }}>
+          <text>
+            <span fg={theme.noteBorder} bg={theme.panel}>
+              ╭─
+            </span>
+            <span fg={theme.noteTitleText} bg={theme.panel}>
+              {savedTitleText}
+            </span>
+            <span fg={theme.noteBorder} bg={theme.panel}>
+              {"─".repeat(savedTopBorderSuffixWidth)}
+            </span>
           </text>
         </box>
         {closeText ? (
           <box style={{ width: closeGapWidth, height: 1, backgroundColor: theme.panel }}>
-            <text bg={theme.noteBackground}>{" ".repeat(closeGapWidth)}</text>
+            <text bg={theme.panel}>{" ".repeat(closeGapWidth)}</text>
           </box>
         ) : null}
         {closeText ? (
@@ -404,59 +455,30 @@ export function AgentInlineNote({
             onMouseUp={onClose}
             style={{ width: closeWidth, height: 1, backgroundColor: theme.panel }}
           >
-            <text fg={theme.noteTitleText} bg={theme.noteTitleBackground}>
+            <text fg={theme.noteTitleText} bg={theme.panel}>
               {closeText}
             </text>
           </box>
         ) : null}
-        <box style={{ width: titleSidePadding, height: 1, backgroundColor: theme.panel }}>
-          <text bg={theme.noteBackground}>{" ".repeat(titleSidePadding)}</text>
-        </box>
         <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-          <text fg={theme.noteBorder} bg={theme.noteBackground}>
-            │
+          <text fg={theme.noteBorder} bg={theme.panel}>
+            ╮
           </text>
         </box>
       </box>
 
-      {lines.map((line, index) => (
-        <box
-          key={`${line.kind}:${index}`}
-          style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}
-        >
-          <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
-            <text>{" ".repeat(boxLeft)}</text>
-          </box>
-          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
-              │
-            </text>
-          </box>
-          <box style={{ width: 1, height: 1, backgroundColor: theme.noteBackground }}>
-            <text bg={theme.noteBackground}> </text>
-          </box>
-          <box style={{ width: contentWidth, height: 1, backgroundColor: theme.panel }}>
-            <text fg={line.kind === "summary" ? theme.text : theme.muted} bg={theme.noteBackground}>
-              {padText(line.text, contentWidth)}
-            </text>
-          </box>
-          <box style={{ width: 1, height: 1, backgroundColor: theme.noteBackground }}>
-            <text bg={theme.noteBackground}> </text>
-          </box>
-          <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
-            <text fg={theme.noteBorder} bg={theme.noteBackground}>
-              │
-            </text>
-          </box>
-        </box>
-      ))}
+      {renderSavedBodyRow("saved-note-top-padding", "", "summary")}
+
+      {lines.map((line, index) =>
+        renderSavedBodyRow(`${line.kind}:${index}`, line.text, line.kind),
+      )}
 
       <box style={{ width: "100%", height: 1, flexDirection: "row", backgroundColor: theme.panel }}>
         <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
           <text>{" ".repeat(boxLeft)}</text>
         </box>
         <box style={{ width: boxWidth, height: 1, backgroundColor: theme.panel }}>
-          <text fg={theme.noteBorder} bg={theme.noteBackground}>
+          <text fg={theme.noteBorder} bg={theme.panel}>
             {bottomBorder}
           </text>
         </box>
