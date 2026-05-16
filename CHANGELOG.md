@@ -13,6 +13,8 @@ All notable user-visible changes to Hunk are documented in this file.
 
 ### Changed
 
+- Clarified inline note draft actions by labeling buttons as `Save (^S)` and `Cancel (Esc)`.
+
 ### Fixed
 
 - Preserved the resolved auto theme across `--watch` refreshes instead of falling back to the default dark theme.

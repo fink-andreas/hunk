@@ -220,8 +220,8 @@ export function AgentInlineNote({
     const draftTitleText = fitText(` ${titleText} `, Math.max(0, boxWidth - 4));
     const draftInnerWidth = Math.max(1, boxWidth - 2);
     const draftContentWidth = Math.max(1, draftInnerWidth - 2);
-    const saveInnerWidth = 6;
-    const cancelInnerWidth = 8;
+    const saveInnerWidth = 11;
+    const cancelInnerWidth = 14;
     const footerRemainderWidth = Math.max(0, boxWidth - saveInnerWidth - cancelInnerWidth - 4);
     const draftTopBorderSuffix = `${"─".repeat(Math.max(0, boxWidth - 3 - draftTitleText.length))}╮`;
     const footerButtonWidth = 1 + saveInnerWidth + 1 + cancelInnerWidth + 1;
@@ -393,7 +393,7 @@ export function AgentInlineNote({
           </box>
           <box onMouseUp={draft.onSave} style={{ width: saveInnerWidth, height: 1 }}>
             <text fg={theme.noteTitleText} bg={theme.panel}>
-              {padText(" Save", saveInnerWidth)}
+              {padText(" Save (^S) ", saveInnerWidth)}
             </text>
           </box>
           <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
@@ -403,7 +403,7 @@ export function AgentInlineNote({
           </box>
           <box onMouseUp={draft.onCancel} style={{ width: cancelInnerWidth, height: 1 }}>
             <text fg={theme.noteTitleText} bg={theme.panel}>
-              {padText(" Cancel", cancelInnerWidth)}
+              {padText(" Cancel (Esc) ", cancelInnerWidth)}
             </text>
           </box>
           <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>

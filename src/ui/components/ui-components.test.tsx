@@ -1384,11 +1384,13 @@ describe("UI components", () => {
     expect(lines[1]).toContain("│                                              │");
     expect(lines[2]).toContain("│ Here's my comment. I think we should think");
     expect(lines[3]).toContain("│                                              │");
-    const saveLine = lines.find((line) => line.includes("│ Save │ Cancel │"));
+    const saveLine = lines.find(
+      (line) => line.includes("Save (^S)") && line.includes("Cancel (Esc)"),
+    );
     expect(saveLine).toBeDefined();
     expect(saveLine!.indexOf("Save")).toBeGreaterThan(lines[2]!.indexOf("Here's"));
-    expect(frame).toContain("┬──────┬────────┤");
-    expect(frame).toContain("╰──────┴────────╯");
+    expect(frame).toContain("┬───────────┬──────────────┤");
+    expect(frame).toContain("╰───────────┴──────────────╯");
   });
 
   test("DiffPane renders all visible hunk notes across the review stream", async () => {
