@@ -233,9 +233,6 @@ describe("Hunk session daemon server", () => {
           "comment-list",
           "comment-rm",
           "comment-clear",
-          "note-list",
-          "note-get",
-          "note-rm",
         ],
       });
 
@@ -627,62 +624,8 @@ describe("Hunk session daemon server", () => {
       await expect(listResponse.json()).resolves.toMatchObject({
         comments: [{ noteId: "user:1", body: "Human note" }],
       });
-
-      const getResponse = await fetch(`http://127.0.0.1:${port}/session-api`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: "note-get",
-          selector: { sessionId: "session-1" },
-          noteId: "agent:1",
-        }),
-      });
-
-      expect(getResponse.status).toBe(200);
-      await expect(getResponse.json()).resolves.toMatchObject({
-        note: { noteId: "agent:1", body: "Agent note" },
-      });
     } finally {
       socket.close();
-      server.stop(true);
-    }
-  });
-
-  test("forwards user note removal through the session API", async () => {
-    const port = await reserveLoopbackPort();
-    process.env.HUNK_MCP_HOST = "127.0.0.1";
-    process.env.HUNK_MCP_PORT = String(port);
-
-    const original = SessionBrokerState.prototype.dispatchCommand;
-    SessionBrokerState.prototype.dispatchCommand = (({ command, input }: any) => {
-      expect(command).toBe("remove_user_note");
-      expect(input).toMatchObject({
-        sessionId: "session-1",
-        noteId: "user:1",
-      });
-
-      return Promise.resolve({ noteId: "user:1", removed: true, remainingNoteCount: 0 });
-    }) as SessionBrokerState["dispatchCommand"];
-
-    const server = serveSessionBrokerDaemon();
-
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          action: "note-rm",
-          selector: { sessionId: "session-1" },
-          noteId: "user:1",
-        }),
-      });
-
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject({
-        result: { noteId: "user:1", removed: true, remainingNoteCount: 0 },
-      });
-    } finally {
-      SessionBrokerState.prototype.dispatchCommand = original;
       server.stop(true);
     }
   });

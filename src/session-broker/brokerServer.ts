@@ -21,9 +21,8 @@ import type {
   NavigatedSelectionResult,
   ReloadedSessionResult,
   RemovedCommentResult,
-  RemovedUserNoteResult,
 } from "../hunk-session/types";
-import { getHunkSessionNote, listHunkSessionNotes } from "../hunk-session/projections";
+import { listHunkSessionNotes } from "../hunk-session/projections";
 import {
   HUNK_SESSION_API_PATH,
   HUNK_SESSION_API_VERSION,
@@ -51,9 +50,6 @@ const SUPPORTED_SESSION_ACTIONS: SessionDaemonAction[] = [
   "comment-list",
   "comment-rm",
   "comment-clear",
-  "note-list",
-  "note-get",
-  "note-rm",
 ];
 
 export interface ServeSessionBrokerDaemonOptions {
@@ -248,35 +244,6 @@ async function handleSessionApiRequest(state: HunkSessionBrokerState, request: R
               filePath: input.filePath,
             },
             timeoutMessage: "Timed out waiting for the session to clear the requested comments.",
-          }),
-        };
-        break;
-      case "note-list":
-        response = {
-          notes: listHunkSessionNotes(state.getSession(input.selector), {
-            filePath: input.filePath,
-            source: input.source,
-          }),
-        };
-        break;
-      case "note-get": {
-        const note = getHunkSessionNote(state.getSession(input.selector), input.noteId);
-        if (!note) {
-          throw new Error(`No review note matches id ${input.noteId}.`);
-        }
-        response = { note };
-        break;
-      }
-      case "note-rm":
-        response = {
-          result: await state.dispatchCommand<RemovedUserNoteResult, "remove_user_note">({
-            selector: input.selector,
-            command: "remove_user_note",
-            input: {
-              ...input.selector,
-              noteId: input.noteId,
-            },
-            timeoutMessage: "Timed out waiting for the session to remove the requested note.",
           }),
         };
         break;

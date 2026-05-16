@@ -5,9 +5,6 @@ import type {
   SessionCommentListCommandInput,
   SessionCommentRemoveCommandInput,
   SessionNavigateCommandInput,
-  SessionNoteGetCommandInput,
-  SessionNoteListCommandInput,
-  SessionNoteRemoveCommandInput,
   SessionReloadCommandInput,
   SessionReviewCommandInput,
   SessionSelectorInput,
@@ -20,7 +17,6 @@ import type {
   NavigatedSelectionResult,
   ReloadedSessionResult,
   RemovedCommentResult,
-  RemovedUserNoteResult,
   SelectedSessionContext,
   SessionLiveCommentSummary,
   SessionReview,
@@ -48,10 +44,7 @@ export type SessionDaemonAction =
   | "comment-apply"
   | "comment-list"
   | "comment-rm"
-  | "comment-clear"
-  | "note-list"
-  | "note-get"
-  | "note-rm";
+  | "comment-clear";
 
 export interface SessionDaemonCapabilities {
   version: number;
@@ -124,22 +117,6 @@ export type SessionDaemonRequest =
       action: "comment-clear";
       selector: SessionCommentClearCommandInput["selector"];
       filePath?: string;
-    }
-  | {
-      action: "note-list";
-      selector: SessionNoteListCommandInput["selector"];
-      filePath?: string;
-      source?: SessionNoteListCommandInput["source"];
-    }
-  | {
-      action: "note-get";
-      selector: SessionNoteGetCommandInput["selector"];
-      noteId: string;
-    }
-  | {
-      action: "note-rm";
-      selector: SessionNoteRemoveCommandInput["selector"];
-      noteId: string;
     };
 
 export type SessionDaemonResponse =
@@ -152,8 +129,5 @@ export type SessionDaemonResponse =
   | { result: AppliedCommentResult }
   | { result: AppliedCommentBatchResult }
   | { comments: Array<SessionLiveCommentSummary | SessionReviewNoteSummary> }
-  | { notes: SessionReviewNoteSummary[] }
-  | { note: SessionReviewNoteSummary }
   | { result: RemovedCommentResult }
-  | { result: RemovedUserNoteResult }
   | { result: ClearedCommentsResult };

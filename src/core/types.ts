@@ -229,31 +229,6 @@ export interface SessionCommentClearCommandInput {
   confirmed: boolean;
 }
 
-export interface SessionNoteListCommandInput {
-  kind: "session";
-  action: "note-list";
-  output: SessionCommandOutput;
-  selector: SessionSelectorInput;
-  filePath?: string;
-  source?: ReviewNoteSource;
-}
-
-export interface SessionNoteGetCommandInput {
-  kind: "session";
-  action: "note-get";
-  output: SessionCommandOutput;
-  selector: SessionSelectorInput;
-  noteId: string;
-}
-
-export interface SessionNoteRemoveCommandInput {
-  kind: "session";
-  action: "note-rm";
-  output: SessionCommandOutput;
-  selector: SessionSelectorInput;
-  noteId: string;
-}
-
 export type SessionCommandInput =
   | SessionListCommandInput
   | SessionGetCommandInput
