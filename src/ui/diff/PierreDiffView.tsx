@@ -1,3 +1,4 @@
+import { useRenderer } from "@opentui/react";
 import { useEffect, useMemo, useState } from "react";
 import type { DiffFile, LayoutMode } from "../../core/types";
 import type { UserNoteLineTarget } from "../hooks/useReviewController";
@@ -59,6 +60,7 @@ export function PierreDiffView({
   scrollable?: boolean;
   visibleBodyBounds?: VisibleBodyBounds;
 }) {
+  const renderer = useRenderer();
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,6 +68,16 @@ export function PierreDiffView({
       setHoveredRowKey(null);
     }
   }, [hoverActive]);
+
+  useEffect(() => {
+    /** Hide hover-only affordances when terminal focus leaves Hunk. */
+    const clearHoveredRow = () => setHoveredRowKey(null);
+    renderer.on("blur", clearHoveredRow);
+    return () => {
+      renderer.off("blur", clearHoveredRow);
+    };
+  }, [renderer]);
+
   const resolvedHighlighted = useHighlightedDiff({
     file,
     appearance: theme.appearance,
@@ -169,7 +181,12 @@ export function PierreDiffView({
 
         if (plannedRow.kind === "inline-note") {
           return (
-            <box key={plannedRow.key} id={rowId} style={{ width: "100%", flexDirection: "column" }}>
+            <box
+              key={plannedRow.key}
+              id={rowId}
+              style={{ width: "100%", flexDirection: "column" }}
+              onMouseOver={() => setHoveredRowKey(null)}
+            >
               <AgentInlineNote
                 annotation={plannedRow.annotation}
                 anchorSide={plannedRow.anchorSide}
@@ -191,9 +208,12 @@ export function PierreDiffView({
             key={plannedRow.key}
             id={rowId}
             style={{ width: "100%", flexDirection: "column" }}
-            onMouseMove={() => {
+            onMouseOver={() => {
               onHover?.();
               setHoveredRowKey(plannedRow.key);
+            }}
+            onMouseOut={() => {
+              setHoveredRowKey((current) => (current === plannedRow.key ? null : current));
             }}
           >
             <DiffRowView
