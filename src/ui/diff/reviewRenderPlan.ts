@@ -217,9 +217,9 @@ function buildInlineVisibleNotePlacements(rows: DiffRow[], visibleAgentNotes: Vi
 
     const anchorSide = annotationAnchor(note.annotation)?.side;
     const coveredRows = fileLineRows.filter((row) => rowOverlapsAnnotation(row, note.annotation));
-    const fallbackGuideRow = anchorSide ? anchorRow : undefined;
-    const guideRows =
-      coveredRows.length > 0 ? coveredRows : fallbackGuideRow ? [fallbackGuideRow] : [];
+    // The inline card already sits directly above its anchor; start any range guide after that row
+    // so the first code line below the note does not show a dangling right-gutter connector.
+    const guideRows = coveredRows.filter((row) => row.key !== anchorRow.key);
     const anchorPlacements = placementsByAnchor.get(anchorRow.key) ?? [];
 
     anchorPlacements.push({
