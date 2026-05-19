@@ -294,7 +294,7 @@ describe("Hunk session daemon server", () => {
     }
   });
 
-  test("rejects HTTP requests with non-loopback Host headers", async () => {
+  test("rejects HTTP requests with non-loopback or wrong-port Host headers", async () => {
     const port = await reserveLoopbackPort();
     process.env.HUNK_MCP_HOST = "127.0.0.1";
     process.env.HUNK_MCP_PORT = String(port);
@@ -302,12 +302,21 @@ describe("Hunk session daemon server", () => {
     const server = serveSessionBrokerDaemon();
 
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/health`, {
+      const attackerHostResponse = await fetch(`http://127.0.0.1:${port}/health`, {
         headers: { host: `attacker.example:${port}` },
       });
 
-      expect(response.status).toBe(403);
-      await expect(response.json()).resolves.toEqual({
+      expect(attackerHostResponse.status).toBe(403);
+      await expect(attackerHostResponse.json()).resolves.toEqual({
+        error: "Host header is not allowed for the local session broker.",
+      });
+
+      const missingPortResponse = await fetch(`http://127.0.0.1:${port}/health`, {
+        headers: { host: "127.0.0.1" },
+      });
+
+      expect(missingPortResponse.status).toBe(403);
+      await expect(missingPortResponse.json()).resolves.toEqual({
         error: "Host header is not allowed for the local session broker.",
       });
     } finally {

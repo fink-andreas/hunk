@@ -147,7 +147,9 @@ function isAllowedHostPort(
   options: { allowRemote: boolean },
 ) {
   const hostAllowed = options.allowRemote || isLoopbackHost(hostPort.host);
-  return hostAllowed && (hostPort.port === undefined || hostPort.port === expectedPort);
+  const defaultHttpPort = 80;
+  const port = hostPort.port ?? defaultHttpPort;
+  return hostAllowed && port === expectedPort;
 }
 
 /** Block DNS-rebinding style requests whose Host does not name a permitted broker endpoint. */

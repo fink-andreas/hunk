@@ -63,10 +63,6 @@ function hasJsonContentType(request: Request) {
 async function parseJsonRequest<CommandName extends string = string, CommandInput = unknown>(
   request: Request,
 ) {
-  if (!hasJsonContentType(request)) {
-    throw new Error("Expected Content-Type application/json.");
-  }
-
   try {
     return (await request.json()) as SessionBrokerDaemonRequest<CommandName, CommandInput>;
   } catch {
