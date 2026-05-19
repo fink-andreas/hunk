@@ -3,6 +3,8 @@ import type { SessionTerminalLocation, SessionTerminalMetadata } from "@hunk/ses
 import { readHunkSessionDaemonCapabilities } from "../session/capabilities";
 import {
   HUNK_SESSION_API_PATH,
+  HUNK_SESSION_CLIENT_HEADER,
+  HUNK_SESSION_CLIENT_HEADER_VALUE,
   type SessionDaemonCapabilities,
   type SessionDaemonRequest,
 } from "../session/protocol";
@@ -70,6 +72,7 @@ class HttpHunkSessionCliClient implements HunkSessionCliClient {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        [HUNK_SESSION_CLIENT_HEADER]: HUNK_SESSION_CLIENT_HEADER_VALUE,
       },
       body: JSON.stringify(input),
     });

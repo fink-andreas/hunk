@@ -25,13 +25,15 @@ import type {
 
 export const HUNK_SESSION_API_PATH = "/session-api";
 export const HUNK_SESSION_CAPABILITIES_PATH = `${HUNK_SESSION_API_PATH}/capabilities`;
+export const HUNK_SESSION_CLIENT_HEADER = "x-hunk-session-client";
+export const HUNK_SESSION_CLIENT_HEADER_VALUE = "hunk-cli";
 export const HUNK_SESSION_API_VERSION = 1;
 
 /**
  * Version daemon/session compatibility separately from the HTTP action surface so newer Hunk
  * builds can refresh an older daemon even when it still exposes the same API endpoints.
  */
-export const HUNK_SESSION_DAEMON_VERSION = 3;
+export const HUNK_SESSION_DAEMON_VERSION = 4;
 
 export type SessionDaemonAction =
   | "list"

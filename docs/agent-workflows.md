@@ -30,6 +30,7 @@ If `hunk session list` reports no sessions while Hunk is visibly running, the ag
 ```bash
 curl -s -X POST http://127.0.0.1:47657/session-api \
   -H 'content-type: application/json' \
+  -H 'x-hunk-session-client: hunk-cli' \
   --data '{"action":"list"}'
 ```
 

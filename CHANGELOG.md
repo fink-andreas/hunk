@@ -10,7 +10,7 @@ All notable user-visible changes to Hunk are documented in this file.
 
 ### Fixed
 
-- Hardened the local session daemon against browser-originated requests by validating Host and Origin headers and requiring JSON content types for API posts.
+- Hardened the local session daemon against browser-originated requests by validating Host, Origin, and Fetch Metadata headers, requiring JSON content types, and requiring the Hunk CLI marker header for API posts.
 - Disabled the generic broker HTTP API by default so Hunk's supported session API is the only app-daemon command surface.
 - Bounded session daemon memory by capping HTTP request body and websocket message sizes and rejecting session registrations with oversized file, hunk, patch, comment, or note payloads.
 

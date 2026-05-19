@@ -13,6 +13,8 @@ import type { SessionSelectorInput } from "../core/types";
 import {
   HUNK_SESSION_API_PATH,
   HUNK_SESSION_API_VERSION,
+  HUNK_SESSION_CLIENT_HEADER,
+  HUNK_SESSION_CLIENT_HEADER_VALUE,
   HUNK_SESSION_DAEMON_VERSION,
 } from "../session/protocol";
 import {
@@ -105,6 +107,9 @@ describe("HTTP Hunk session CLI client", () => {
 
       expect(url).toEndWith(HUNK_SESSION_API_PATH);
       expect(init?.method).toBe("POST");
+      expect(new Headers(init?.headers).get(HUNK_SESSION_CLIENT_HEADER)).toBe(
+        HUNK_SESSION_CLIENT_HEADER_VALUE,
+      );
       const request = JSON.parse(String(init?.body));
       requests.push(request);
       return Response.json(responses[request.action as keyof typeof responses]);

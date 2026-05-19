@@ -34,6 +34,8 @@ import {
   HUNK_SESSION_API_PATH,
   HUNK_SESSION_API_VERSION,
   HUNK_SESSION_CAPABILITIES_PATH,
+  HUNK_SESSION_CLIENT_HEADER,
+  HUNK_SESSION_CLIENT_HEADER_VALUE,
   HUNK_SESSION_DAEMON_VERSION,
   type SessionDaemonAction,
   type SessionDaemonCapabilities,
@@ -94,6 +96,51 @@ function sessionCapabilities(): SessionDaemonCapabilities {
 
 function jsonError(message: string, status = 400) {
   return Response.json({ error: message }, { status });
+}
+
+/** Block requests whose Sec-Fetch-Site indicates cross-site or same-site browser traffic. */
+function validateFetchMetadata(request: Request) {
+  const site = request.headers.get("sec-fetch-site")?.trim().toLowerCase();
+  if (!site) {
+    return null;
+  }
+
+  if (site === "none" || site === "same-origin") {
+    return null;
+  }
+
+  return jsonError("Browser request metadata is not allowed for the local session broker.", 403);
+}
+
+/** Block browser-looking requests that carry Sec-* headers but omit an Origin. */
+function validateBrowserRequestOrigin(request: Request) {
+  if (request.headers.has("origin")) {
+    return null;
+  }
+
+  const browserHeaderNames = [
+    "sec-fetch-dest",
+    "sec-fetch-mode",
+    "sec-fetch-site",
+    "sec-fetch-user",
+    "sec-ch-ua",
+    "sec-ch-ua-mobile",
+    "sec-ch-ua-platform",
+  ];
+  if (!browserHeaderNames.some((header) => request.headers.has(header))) {
+    return null;
+  }
+
+  return jsonError("Browser requests to the local session broker must include an Origin.", 403);
+}
+
+/** Require an intentional native-client header for the JSON command endpoint. */
+function validateSessionClientHeader(request: Request) {
+  if (request.headers.get(HUNK_SESSION_CLIENT_HEADER) === HUNK_SESSION_CLIENT_HEADER_VALUE) {
+    return null;
+  }
+
+  return jsonError("Expected Hunk session client header.", 403);
 }
 
 /** Return whether one request body was explicitly sent as JSON. */
@@ -211,6 +258,11 @@ async function parseJsonRequest(request: Request) {
 async function handleSessionApiRequest(state: HunkSessionBrokerState, request: Request) {
   if (request.method !== "POST") {
     return jsonError("Session API requests must use POST.", 405);
+  }
+
+  const clientHeaderError = validateSessionClientHeader(request);
+  if (clientHeaderError) {
+    return clientHeaderError;
   }
 
   if (!hasJsonContentType(request)) {
@@ -445,6 +497,16 @@ export function serveSessionBrokerDaemon(
       const originError = validateOriginHeader(request, config.port, allowRemote);
       if (originError) {
         return originError;
+      }
+
+      const fetchMetadataError = validateFetchMetadata(request);
+      if (fetchMetadataError) {
+        return fetchMetadataError;
+      }
+
+      const browserOriginError = validateBrowserRequestOrigin(request);
+      if (browserOriginError) {
+        return browserOriginError;
       }
 
       const url = new URL(request.url);

@@ -7,11 +7,17 @@ import {
   createTestSessionSnapshot,
 } from "../../test/helpers/session-daemon-fixtures";
 import { SessionBrokerState } from "@hunk/session-broker-core";
+import { HUNK_SESSION_CLIENT_HEADER, HUNK_SESSION_CLIENT_HEADER_VALUE } from "../session/protocol";
 import { serveSessionBrokerDaemon } from "./brokerServer";
 
 const originalHost = process.env.HUNK_MCP_HOST;
 const originalPort = process.env.HUNK_MCP_PORT;
 const originalUnsafeRemote = process.env.HUNK_MCP_UNSAFE_ALLOW_REMOTE;
+
+const SESSION_API_HEADERS = {
+  "content-type": "application/json",
+  [HUNK_SESSION_CLIENT_HEADER]: HUNK_SESSION_CLIENT_HEADER_VALUE,
+};
 
 interface HealthResponse {
   ok: boolean;
@@ -291,7 +297,7 @@ describe("Hunk session daemon server", () => {
       expect(capabilities.status).toBe(200);
       await expect(capabilities.json()).resolves.toMatchObject({
         version: 1,
-        daemonVersion: 3,
+        daemonVersion: 4,
         actions: [
           "list",
           "get",
@@ -376,6 +382,98 @@ describe("Hunk session daemon server", () => {
     }
   });
 
+  test("rejects browser Fetch Metadata for HTTP and websocket requests", async () => {
+    const port = await reserveLoopbackPort();
+    process.env.HUNK_MCP_HOST = "127.0.0.1";
+    process.env.HUNK_MCP_PORT = String(port);
+
+    const server = serveSessionBrokerDaemon();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`, {
+        headers: { "sec-fetch-site": "cross-site" },
+      });
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toEqual({
+        error: "Browser request metadata is not allowed for the local session broker.",
+      });
+
+      const handshake = await readRawWebSocketHandshake(port, ["Sec-Fetch-Site: same-site"]);
+      expect(handshake).toStartWith("HTTP/1.1 403");
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("allows same-origin and none Fetch Metadata from a local Origin", async () => {
+    const port = await reserveLoopbackPort();
+    process.env.HUNK_MCP_HOST = "127.0.0.1";
+    process.env.HUNK_MCP_PORT = String(port);
+
+    const server = serveSessionBrokerDaemon();
+
+    try {
+      for (const site of ["same-origin", "none"]) {
+        const response = await fetch(`http://127.0.0.1:${port}/health`, {
+          headers: {
+            origin: `http://127.0.0.1:${port}`,
+            "sec-fetch-site": site,
+          },
+        });
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toMatchObject({ ok: true });
+      }
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("rejects browser-looking requests that omit Origin", async () => {
+    const port = await reserveLoopbackPort();
+    process.env.HUNK_MCP_HOST = "127.0.0.1";
+    process.env.HUNK_MCP_PORT = String(port);
+
+    const server = serveSessionBrokerDaemon();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`, {
+        headers: {
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "none",
+        },
+      });
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toEqual({
+        error: "Browser requests to the local session broker must include an Origin.",
+      });
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("requires the Hunk session client header for session API posts", async () => {
+    const port = await reserveLoopbackPort();
+    process.env.HUNK_MCP_HOST = "127.0.0.1";
+    process.env.HUNK_MCP_PORT = String(port);
+
+    const server = serveSessionBrokerDaemon();
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "list" }),
+      });
+
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toEqual({
+        error: "Expected Hunk session client header.",
+      });
+    } finally {
+      server.stop(true);
+    }
+  });
+
   test("requires JSON content type for session API posts", async () => {
     const port = await reserveLoopbackPort();
     process.env.HUNK_MCP_HOST = "127.0.0.1";
@@ -386,7 +484,7 @@ describe("Hunk session daemon server", () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: { "content-type": "text/plain" },
+        headers: { ...SESSION_API_HEADERS, "content-type": "text/plain" },
         body: JSON.stringify({ action: "list" }),
       });
 
@@ -409,7 +507,7 @@ describe("Hunk session daemon server", () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: SESSION_API_HEADERS,
         body: JSON.stringify({ action: "list", filler: "x".repeat(5 * 1024 * 1024) }),
       });
 
@@ -497,9 +595,7 @@ describe("Hunk session daemon server", () => {
 
       const emptyList = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: SESSION_API_HEADERS,
         body: JSON.stringify({ action: "list" }),
       });
       expect(emptyList.status).toBe(200);
@@ -509,9 +605,7 @@ describe("Hunk session daemon server", () => {
       try {
         const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
           method: "POST",
-          headers: {
-            "content-type": "application/json",
-          },
+          headers: SESSION_API_HEADERS,
           body: JSON.stringify({ action: "list" }),
         });
 
@@ -660,9 +754,7 @@ describe("Hunk session daemon server", () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: SESSION_API_HEADERS,
         body: JSON.stringify({
           action: "review",
           selector: { sessionId: "session-1" },
@@ -721,9 +813,7 @@ describe("Hunk session daemon server", () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: SESSION_API_HEADERS,
         body: JSON.stringify({
           action: "reload",
           selector: { sessionPath: "/tmp/live-session" },
@@ -782,7 +872,7 @@ describe("Hunk session daemon server", () => {
     try {
       const listResponse = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: SESSION_API_HEADERS,
         body: JSON.stringify({
           action: "comment-list",
           selector: { sessionId: "session-1" },
@@ -855,9 +945,7 @@ describe("Hunk session daemon server", () => {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/session-api`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
+        headers: SESSION_API_HEADERS,
         body: JSON.stringify({
           action: "comment-apply",
           selector: { sessionId: "session-1" },
