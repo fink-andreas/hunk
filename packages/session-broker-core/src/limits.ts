@@ -36,9 +36,12 @@ export class PayloadTooLargeError extends Error {
   }
 }
 
+// Reused across every websocket message, HTTP body, and patch check to avoid a per-call alloc.
+const sharedTextEncoder = new TextEncoder();
+
 /** UTF-8 byte length of a string without allocating a Buffer in non-Node runtimes. */
 export function utf8ByteLength(value: string): number {
-  return new TextEncoder().encode(value).length;
+  return sharedTextEncoder.encode(value).length;
 }
 
 /**
@@ -99,6 +102,9 @@ export async function readRequestTextWithLimit(
     if (total > maxBytes) {
       // Stop pulling from the stream immediately so the body cannot grow past the cap.
       await reader.cancel().catch(() => {});
+      // cancel() does not release the lock per the Streams spec; release it explicitly so the
+      // over-limit path matches the normal-exit path instead of waiting for GC.
+      reader.releaseLock();
       throw new PayloadTooLargeError(maxBytes);
     }
 
