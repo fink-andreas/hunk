@@ -17,7 +17,7 @@ function sleep(ms: number) {
 
 /** Send an SGR mouse motion event at zero-based terminal coordinates. */
 async function moveMouse(session: Session, x: number, y: number) {
-  session.writeRaw(`\x1b[<35;${x + 1};${y + 1}m`);
+  session.writeRaw(`\x1b[<35;${x + 1};${y + 1}M`);
   await session.waitIdle();
 }
 
@@ -35,7 +35,7 @@ async function dragMouse(
   for (let step = 1; step <= steps; step += 1) {
     const x = Math.round(startX + ((endX - startX) * step) / steps);
     const y = Math.round(startY + ((endY - startY) * step) / steps);
-    session.writeRaw(`\x1b[<32;${x + 1};${y + 1}m`);
+    session.writeRaw(`\x1b[<32;${x + 1};${y + 1}M`);
     await sleep(10);
   }
   session.writeRaw(`\x1b[<0;${endX + 1};${endY + 1}m`);
@@ -496,6 +496,7 @@ describe("live UI integration", () => {
         5_000,
       );
 
+      let scrollbarX: number | null = null;
       let trackClicked = "";
       for (const x of [119, 118, 117, 116]) {
         await session.clickAt(x, 8);
@@ -505,29 +506,23 @@ describe("live UI integration", () => {
             (text) => text.includes("line12 = 112") || text.includes("line13 = 113"),
             1_000,
           );
+          scrollbarX = x;
           break;
         } catch {
           // Try the next near-edge column; PTY backends differ by one cell at pane edges.
         }
       }
 
+      expect(scrollbarX).not.toBeNull();
       expect(trackClicked).toContain("line1");
       expect(trackClicked).not.toContain("line01 = 101");
 
-      let thumbDragged = "";
-      for (const x of [119, 118, 117, 116]) {
-        await dragMouse(session, x, 5, x, 8);
-        try {
-          thumbDragged = await harness.waitForSnapshot(
-            session,
-            (text) => text.includes("line15 = 115") || text.includes("line16 = 116"),
-            1_000,
-          );
-          break;
-        } catch {
-          // Try the next near-edge column; PTY backends differ by one cell at pane edges.
-        }
-      }
+      await dragMouse(session, scrollbarX ?? 118, 5, scrollbarX ?? 118, 8);
+      const thumbDragged = await harness.waitForSnapshot(
+        session,
+        (text) => text.includes("line15 = 115") || text.includes("line16 = 116"),
+        5_000,
+      );
 
       expect(thumbDragged).toContain("line1");
       expect(thumbDragged).not.toContain("line01 = 101");
