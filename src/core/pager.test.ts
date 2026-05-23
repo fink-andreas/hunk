@@ -258,4 +258,32 @@ describe("plain text pager fallback", () => {
     await expect(promise).rejects.toThrow("Pager command failed: less -R");
     expect(written).toBe("needs pager");
   });
+
+  test("throws when the pager emits an async spawn error", async () => {
+    const pager = new EventEmitter() as EventEmitter & { stdin: PassThrough };
+    pager.stdin = new PassThrough();
+    const spawnError = new Error("spawn ENOENT");
+
+    const promise = pagePlainText(
+      "needs pager",
+      { PAGER: "missing-pager" },
+      createPagerDeps({
+        spawnImpl(command, args, options) {
+          expect(command).toBe("missing-pager");
+          expect(args).toEqual([]);
+          expect(options.shell).toBe(false);
+          queueMicrotask(() => {
+            pager.emit("error", spawnError);
+            pager.emit("close", null);
+          });
+          return pager as never;
+        },
+      }),
+    );
+
+    await expect(promise).rejects.toThrow("Pager command failed: missing-pager");
+    await promise.catch((error) => {
+      expect(error.cause).toBe(spawnError);
+    });
+  });
 });

@@ -1,5 +1,4 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
-import { once } from "node:events";
 import { parse as parseShellCommand, type ParseEntry } from "shell-quote";
 import { stripTerminalControl } from "./patch/normalize";
 
@@ -13,6 +12,8 @@ export function looksLikePatchInput(text: string) {
     /^@@ /m.test(normalized)
   );
 }
+
+const DEFAULT_TEXT_PAGER_COMMAND = "less -R";
 
 interface ResolvedPagerCommand {
   command: string;
@@ -112,16 +113,25 @@ function resolvePagerSpec(command: string): ResolvedPagerCommand | null {
   };
 }
 
-/** Choose a plain-text pager command while avoiding recursive `hunk pager` launches. */
-export function resolveTextPagerCommand(env: NodeJS.ProcessEnv = process.env): string {
+/** Choose a plain-text pager process while avoiding recursive `hunk pager` launches. */
+function resolveTextPagerSpec(env: NodeJS.ProcessEnv = process.env): ResolvedPagerCommand {
   const candidate = env.HUNK_TEXT_PAGER ?? env.PAGER;
   const pagerSpec = candidate ? resolvePagerSpec(candidate) : null;
 
   if (!pagerSpec || executableName(pagerSpec.command) === "hunk") {
-    return "less -R";
+    const fallbackSpec = resolvePagerSpec(DEFAULT_TEXT_PAGER_COMMAND);
+    if (!fallbackSpec) {
+      throw new Error(`Default pager command is invalid: ${DEFAULT_TEXT_PAGER_COMMAND}`);
+    }
+    return fallbackSpec;
   }
 
-  return pagerSpec.displayCommand;
+  return pagerSpec;
+}
+
+/** Choose a plain-text pager command while avoiding recursive `hunk pager` launches. */
+export function resolveTextPagerCommand(env: NodeJS.ProcessEnv = process.env): string {
+  return resolveTextPagerSpec(env).displayCommand;
 }
 
 /** Minimal dependencies for testing pager behavior without spawning a real subprocess. */
@@ -144,13 +154,8 @@ export async function pagePlainText(
     return;
   }
 
-  const pagerCommand = resolveTextPagerCommand(env);
-  const pagerSpec = resolvePagerSpec(pagerCommand) ?? resolvePagerSpec("less -R");
-
-  if (!pagerSpec) {
-    deps.stdout.write(text);
-    return;
-  }
+  const pagerSpec = resolveTextPagerSpec(env);
+  const pagerCommand = pagerSpec.displayCommand;
 
   let pager: ChildProcess;
   try {
@@ -167,12 +172,17 @@ export async function pagePlainText(
   }
 
   let spawnError: unknown;
-  pager.once("error", (error) => {
-    spawnError = error;
+  const closeCode = new Promise<number | null>((resolve) => {
+    pager.once("error", (error) => {
+      spawnError = error;
+    });
+    pager.once("close", (code) => {
+      resolve(typeof code === "number" ? code : null);
+    });
   });
 
   pager.stdin?.end(text);
-  const [code] = await once(pager, "close");
+  const code = await closeCode;
 
   if (spawnError || (typeof code === "number" && code !== 0)) {
     throw new Error(`Pager command failed: ${pagerCommand}`, { cause: spawnError });
