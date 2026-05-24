@@ -4,8 +4,8 @@ import { createPtyHarness } from "./harness";
 
 const harness = createPtyHarness();
 
-/** Give PTY-backed startup and redraws enough headroom for slower CI machines. */
-setDefaultTimeout(20_000);
+/** Give PTY-backed startup, redraws, and wheel retries enough headroom for slower CI machines. */
+setDefaultTimeout(45_000);
 
 afterEach(() => {
   harness.cleanup();
@@ -17,7 +17,7 @@ async function scrollWheelUntil(
   direction: "down" | "up",
   predicate: (text: string) => boolean,
 ) {
-  let lastError: unknown;
+  let lastErrorMessage = `Timed out waiting for pager wheel scroll ${direction}.`;
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
     if (direction === "down") {
@@ -29,15 +29,11 @@ async function scrollWheelUntil(
     try {
       return await harness.waitForSnapshot(session, predicate, 700);
     } catch (error) {
-      lastError = error;
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
     }
   }
 
-  if (lastError instanceof Error) {
-    throw lastError;
-  }
-
-  throw new Error(`Timed out waiting for pager wheel scroll ${direction}.`);
+  throw new Error(lastErrorMessage);
 }
 
 describe("PTY pager", () => {
