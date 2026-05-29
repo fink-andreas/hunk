@@ -51,7 +51,7 @@ jobs:
       - name: Run head benchmarks
         run: |
           mkdir -p benchmark-results
-          bun run bench -- --samples "$HUNK_BENCHMARK_SAMPLES" --include-competitors --out benchmark-results/head.json \
+          bun run bench -- --samples "$HUNK_BENCHMARK_SAMPLES" --out benchmark-results/head.json \
             | tee benchmark-results/head.txt
 
       - name: Run base benchmarks
@@ -63,7 +63,7 @@ jobs:
           cp -R benchmarks ../hunk-benchmark-base/benchmarks
           cd ../hunk-benchmark-base
           bun install --frozen-lockfile
-          bun run benchmarks/run.ts --samples "$HUNK_BENCHMARK_SAMPLES" --include-competitors --out "$GITHUB_WORKSPACE/benchmark-results/base.json" \
+          bun run benchmarks/run.ts --samples "$HUNK_BENCHMARK_SAMPLES" --out "$GITHUB_WORKSPACE/benchmark-results/base.json" \
             | tee "$GITHUB_WORKSPACE/benchmark-results/base.txt"
 
       - name: Compare benchmark results

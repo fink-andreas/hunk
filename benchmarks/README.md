@@ -7,7 +7,7 @@ Benchmark scripts, shared fixtures, and local result artifacts live here. These 
 Run the full benchmark suite with one JSON result file:
 
 ```bash
-bun run bench -- --samples 3 --include-competitors --out benchmarks/results/head.json
+bun run bench -- --samples 3 --out benchmarks/results/head.json
 ```
 
 Run focused scripts while iterating:
@@ -41,9 +41,9 @@ bun run bench:compare -- \
 - `render-layout.ts` — measures pure split/stack row building, section geometry, and review-plan construction for many-small-files, balanced, and large-single-file streams.
 - `highlight-prefetch.ts` — measures selected-file highlight startup and adjacent prefetch readiness.
 - `large-stream.ts` — measures large split-stream first-frame and scroll cost.
-- `large-stream-profile.ts` — profiles the main pure planning stages behind the large split-stream benchmark.
-- `memory.ts` — records RSS/heap after fixture loading, planning, first frame, and next-hunk navigation.
-- `competitors.ts` — optional informational comparisons against `git diff --no-ext-diff`, `delta`, `difftastic`, and `diff-so-fancy` when installed.
+- `large-stream-profile.ts` — optional local profiler for the main pure planning stages behind the large split-stream benchmark.
+- `memory.ts` — optional local RSS/heap profiler after fixture loading, planning, first frame, and next-hunk navigation.
+- `competitors.ts` — optional local informational comparisons against `git diff --no-ext-diff`, `delta`, `difftastic`, and `diff-so-fancy` when installed.
 - `large-stream-fixture.ts` and `lib/fixtures.ts` — shared deterministic synthetic fixtures.
 
 ## Output format
@@ -84,11 +84,13 @@ Each script prints `METRIC name=value` lines. `benchmarks/run.ts` repeats script
 6. Uploads raw JSON/text artifacts.
 7. Posts or updates one PR comment with a curated key-benchmark table, always including regressions and hiding noisy supporting metrics.
 
+The default CI suite intentionally excludes optional memory profiling, pure-planning profiling, and competitor comparisons to keep PR feedback fast. Run `bun run bench -- --include-competitors` or focused scripts locally when deeper diagnostics are needed.
+
 Initial thresholds:
 
 - Time metrics (`*_ms`): fail when PR median is more than 15% slower **and** at least 5ms slower.
 - Memory metrics (`rss`/`heap`): fail when PR median is more than 20% higher **and** at least 8MiB higher.
-- Counts, fixture sizes, availability flags, and competitor metrics are informational.
+- Counts, fixture sizes, availability flags, and optional competitor metrics are informational.
 
 Competitor comparisons are intentionally non-failing because installed tool versions and feature parity vary by environment.
 

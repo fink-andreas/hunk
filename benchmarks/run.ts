@@ -10,8 +10,6 @@ const defaultScripts = [
   "render-layout.ts",
   "highlight-prefetch.ts",
   "large-stream.ts",
-  "large-stream-profile.ts",
-  "memory.ts",
 ];
 
 interface RunOptions {
