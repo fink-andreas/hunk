@@ -76,6 +76,14 @@ describe("sanitizeTerminalText", () => {
     expect(output).toBe("safetext");
   });
 
+  test("removes crafted style placeholder delimiters before restoring ANSI styling", () => {
+    const output = sanitizeTerminalText("safe\u{f0000}0\u{f0001}\x1b[31mred\x1b[m", {
+      preserveAnsiStyle: true,
+    });
+
+    expect(output).toBe("safe0\x1b[31mred\x1b[m");
+  });
+
   test("sanitizes span text while preserving styling metadata", () => {
     const spans = [
       { text: `before${OSC52_CLIPBOARD}`, fg: "#fff" },

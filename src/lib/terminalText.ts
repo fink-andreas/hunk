@@ -14,6 +14,7 @@ const sevenBitControlStrings =
   /\x1b(?:\][\s\S]*?(?:\x07|\x1b\\|\x9c)|[PX^_][\s\S]*?(?:\x1b\\|\x9c)|\[[0-?]*[ -/]*[@-~])/g;
 const c1ControlStrings = /[\x90\x98\x9d\x9e\x9f][\s\S]*?(?:\x07|\x1b\\|\x9c)/g;
 const c1Csi = /\x9b[0-?]*[ -/]*[@-~]/g;
+const preservedStyleTokenDelimiters = /[\u{f0000}\u{f0001}]/gu;
 
 /** Normalize untrusted terminal-bound text before rendering it in Hunk UI surfaces. */
 export function sanitizeTerminalText(
@@ -46,7 +47,11 @@ export function sanitizeTerminalText(
     return token;
   };
 
-  let sanitized = text
+  // Strip placeholder delimiters from untrusted input so authored text cannot spoof
+  // an internal token that later restores an ANSI sequence at the wrong location.
+  const tokenSafeText = preserveAnsiStyle ? text.replace(preservedStyleTokenDelimiters, "") : text;
+
+  let sanitized = tokenSafeText
     .replace(sevenBitControlStrings, preserveStyle)
     .replace(c1ControlStrings, "")
     .replace(c1Csi, "")
