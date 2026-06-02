@@ -7,6 +7,10 @@ describe("computeRapidScrollOverscanRows", () => {
     expect(computeRapidScrollOverscanRows({ deltaRows: -3, viewportHeight: 30 })).toBe(0);
   });
 
+  test("treats the minimum burst threshold as inclusive", () => {
+    expect(computeRapidScrollOverscanRows({ deltaRows: 4, viewportHeight: 30 })).toBe(90);
+  });
+
   test("expands to at least three viewports during bursty scrolling", () => {
     expect(computeRapidScrollOverscanRows({ deltaRows: 8, viewportHeight: 30 })).toBe(90);
   });

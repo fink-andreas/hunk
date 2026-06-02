@@ -423,6 +423,7 @@ export function DiffPane({
   const lastClickPointRef = useRef<CopySelectionPoint | null>(null);
   const scrollbarRef = useRef<VerticalScrollbarHandle>(null);
   const prevScrollTopRef = useRef(0);
+  const hasReadScrollViewportRef = useRef(false);
   const previousSectionGeometryRef = useRef<DiffSectionGeometry[] | null>(null);
   const previousFilesRef = useRef<DiffFile[]>(files);
   const previousLayoutRef = useRef(layout);
@@ -499,9 +500,14 @@ export function DiffPane({
       const nextTop = scrollBox.scrollTop ?? 0;
       const nextHeight = scrollBox.viewport.height ?? 0;
 
-      // Detect scroll activity, show scrollbar, and clear hover-only controls. The pointer may
-      // now sit over a different row, but only an actual mouse move should reveal row actions.
-      if (nextTop !== prevScrollTopRef.current) {
+      // The first viewport read is a baseline snapshot, not scroll input. The scroll box may retain
+      // a non-zero top across remounts, so do not treat that retained position as a rapid burst.
+      if (!hasReadScrollViewportRef.current) {
+        hasReadScrollViewportRef.current = true;
+        prevScrollTopRef.current = nextTop;
+      } else if (nextTop !== prevScrollTopRef.current) {
+        // Detect scroll activity, show scrollbar, and clear hover-only controls. The pointer may
+        // now sit over a different row, but only an actual mouse move should reveal row actions.
         const previousTop = prevScrollTopRef.current;
         scrollbarRef.current?.show();
         clearAddNoteHoverForScroll();
