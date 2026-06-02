@@ -46,6 +46,7 @@ export interface UseAppKeyboardShortcutsOptions {
   activeMenuId: MenuId | null;
   activateCurrentMenuItem: () => void;
   canRefreshCurrentInput: boolean;
+  canReplyToActiveNote: boolean;
   closeHelp: () => void;
   closeMenu: () => void;
   cycleTheme: () => void;
@@ -59,6 +60,7 @@ export interface UseAppKeyboardShortcutsOptions {
   openMenu: (menuId: MenuId) => void;
   pagerMode: boolean;
   requestQuit: () => void;
+  replyToActiveNote: () => void;
   scrollCodeHorizontally: (delta: number) => void;
   scrollDiff: (delta: number, unit: ScrollUnit) => void;
   saveDraftNote: () => void;
@@ -83,6 +85,7 @@ export function useAppKeyboardShortcuts({
   activeMenuId,
   activateCurrentMenuItem,
   canRefreshCurrentInput,
+  canReplyToActiveNote,
   closeHelp,
   closeMenu,
   cycleTheme,
@@ -96,6 +99,7 @@ export function useAppKeyboardShortcuts({
   openMenu,
   pagerMode,
   requestQuit,
+  replyToActiveNote,
   scrollCodeHorizontally,
   saveDraftNote,
   scrollDiff,
@@ -431,8 +435,17 @@ export function useAppKeyboardShortcuts({
       return;
     }
 
-    if ((key.name === "r" || key.sequence === "r") && canRefreshCurrentInput) {
-      runAndCloseMenu(triggerRefreshCurrentInput);
+    if (key.name === "r" || key.sequence === "r") {
+      runAndCloseMenu(() => {
+        if (canReplyToActiveNote) {
+          replyToActiveNote();
+          return;
+        }
+
+        if (canRefreshCurrentInput) {
+          triggerRefreshCurrentInput();
+        }
+      });
       return;
     }
 

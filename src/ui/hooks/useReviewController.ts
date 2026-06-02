@@ -41,6 +41,7 @@ import { selectGapForKeyboardToggle } from "../diff/expandCollapsedRows";
 import { trailingCollapsedLines } from "../diff/pierre";
 import { findNextHunkCursor } from "../lib/hunks";
 import {
+  annotationAnchor,
   annotationHunkIndex,
   reviewNoteSource,
   visibleReviewNoteId,
@@ -244,6 +245,7 @@ export interface ReviewController {
   removeLiveComment: (commentId: string) => RemovedCommentResult;
   cancelDraftNote: () => void;
   removeUserNote: (noteId: string) => void;
+  replyToActiveNote: () => DraftReviewNote | null;
   saveDraftNote: () => UserReviewNote | null;
   selectFile: (fileId: string, nextHunkIndex?: number, options?: ReviewSelectionOptions) => void;
   selectHunk: (fileId: string, hunkIndex: number, options?: ReviewSelectionOptions) => void;
@@ -865,6 +867,37 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
     [allFiles, selectHunk, selectedFile?.id, selectedHunkIndex],
   );
 
+  /** Start a reply draft at the active note's hunk and line anchor. */
+  const replyToActiveNote = useCallback((): DraftReviewNote | null => {
+    if (!activeNoteId) {
+      return null;
+    }
+
+    for (const file of allFiles) {
+      const annotationIndex = file.agent?.annotations.findIndex(
+        (annotation, index) => visibleReviewNoteId(file, annotation, index) === activeNoteId,
+      );
+      if (annotationIndex === undefined || annotationIndex < 0) {
+        continue;
+      }
+
+      const annotation = file.agent!.annotations[annotationIndex]!;
+      const hunkIndex = annotationHunkIndex(file, annotation);
+      if (hunkIndex < 0) {
+        return null;
+      }
+
+      const anchor = annotationAnchor(annotation);
+      return startUserNote(
+        file.id,
+        hunkIndex,
+        anchor ? { side: anchor.side, line: anchor.lineNumber } : undefined,
+      );
+    }
+
+    return null;
+  }, [activeNoteId, allFiles, startUserNote]);
+
   /** Update the body of the active draft note. */
   const updateDraftNote = useCallback((body: string) => {
     setDraftNote((current) => (current ? { ...current, body } : current));
@@ -1057,6 +1090,7 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
     navigateToLocation,
     removeLiveComment,
     removeUserNote,
+    replyToActiveNote,
     saveDraftNote,
     selectFile,
     selectHunk,

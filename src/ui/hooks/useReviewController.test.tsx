@@ -394,6 +394,50 @@ describe("useReviewController", () => {
     }
   });
 
+  test("replyToActiveNote starts a draft at the active note anchor", async () => {
+    const { controllerRef, setup } = await renderReviewController([
+      createDiffFile(
+        "alpha",
+        "alpha.ts",
+        "export const alpha = 1;\n",
+        "export const alpha = 2;\n",
+        {
+          path: "alpha.ts",
+          annotations: [{ id: "review", newRange: [1, 1], summary: "Review note" }],
+        },
+      ),
+    ]);
+
+    try {
+      await flush(setup);
+
+      await act(async () => {
+        expectValue(controllerRef.current).moveToAnnotatedHunk(1);
+      });
+      await flush(setup);
+      expect(expectValue(controllerRef.current).activeNoteId).toBe("annotation:alpha:review");
+
+      let draft = null as ReturnType<ReviewController["replyToActiveNote"]>;
+      await act(async () => {
+        draft = expectValue(controllerRef.current).replyToActiveNote();
+      });
+      await flush(setup);
+
+      expect(draft).toMatchObject({ fileId: "alpha", hunkIndex: 0, side: "new", line: 1 });
+      expect(expectValue(controllerRef.current).draftNote).toMatchObject({
+        fileId: "alpha",
+        hunkIndex: 0,
+        side: "new",
+        line: 1,
+      });
+      expect(expectValue(controllerRef.current).activeNoteId).toBeNull();
+    } finally {
+      await act(async () => {
+        setup.renderer.destroy();
+      });
+    }
+  });
+
   test("batch live comments validate together and reveal the first applied hunk", async () => {
     const { controllerRef, setup } = await renderReviewController([createTwoHunkFile()]);
 

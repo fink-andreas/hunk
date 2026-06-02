@@ -574,6 +574,14 @@ export function App({
     [activeAddNoteTarget, review.startUserNote],
   );
 
+  /** Start a reply draft for the active review note and move keyboard focus into it. */
+  const replyToActiveNote = useCallback(() => {
+    const draft = review.replyToActiveNote();
+    if (draft) {
+      setFocusArea("note");
+    }
+  }, [review.replyToActiveNote]);
+
   /** Mark the inline draft note textarea as the active keyboard input. */
   const focusDraftNote = useCallback(() => {
     setFocusArea("note");
@@ -686,6 +694,7 @@ export function App({
     activeMenuId,
     activateCurrentMenuItem,
     canRefreshCurrentInput,
+    canReplyToActiveNote: Boolean(review.activeNoteId),
     closeHelp,
     closeMenu,
     cycleTheme,
@@ -699,6 +708,7 @@ export function App({
     openMenu,
     pagerMode,
     requestQuit,
+    replyToActiveNote,
     scrollCodeHorizontally,
     saveDraftNote,
     scrollDiff,
