@@ -615,6 +615,25 @@ describe("useReviewController", () => {
           editable: true,
         },
       ]);
+      expect(expectValue(controllerRef.current).activeNoteCanEdit).toBe(true);
+
+      await act(async () => {
+        expectValue(controllerRef.current).editActiveNote();
+        expectValue(controllerRef.current).updateDraftNote("Please add two regression tests.");
+      });
+      await flush(setup);
+
+      await act(async () => {
+        expectValue(controllerRef.current).saveDraftNote();
+      });
+      await flush(setup);
+
+      expect(expectValue(controllerRef.current).userNotesByFileId.alpha).toHaveLength(1);
+      expect(expectValue(controllerRef.current).reviewNoteSummaries[0]).toMatchObject({
+        noteId: savedNoteId,
+        body: "Please add two regression tests.",
+        editable: true,
+      });
 
       await act(async () => {
         expectValue(controllerRef.current).removeUserNote(savedNoteId);

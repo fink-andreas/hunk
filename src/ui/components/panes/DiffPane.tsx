@@ -202,7 +202,9 @@ export function DiffPane({
   width,
   cancelCopySelectionRef,
   onActiveAddNoteAffordanceChange,
+  onEditActiveNote,
   onRemoveUserNote,
+  onReplyToActiveNote,
   onSaveDraftNote,
   onStartUserNoteAtHunk,
   onUpdateDraftNote,
@@ -251,7 +253,9 @@ export function DiffPane({
   onActiveAddNoteAffordanceChange?: (
     affordance: (ActiveAddNoteAffordance & { fileId: string }) | null,
   ) => void;
+  onEditActiveNote?: () => void;
   onRemoveUserNote?: (noteId: string) => void;
+  onReplyToActiveNote?: () => void;
   onSaveDraftNote?: () => void;
   onStartUserNoteAtHunk?: (fileId: string, hunkIndex: number, target?: UserNoteLineTarget) => void;
   onUpdateDraftNote?: (body: string) => void;
@@ -350,22 +354,26 @@ export function DiffPane({
       );
       const notes: VisibleAgentNote[] = annotations.map((annotation, index) => {
         const id = visibleReviewNoteId(file, annotation, index);
+        const active = id === activeNoteId;
         const source = reviewNoteSource(annotation);
         if (source !== "user") {
           return {
             id,
-            active: id === activeNoteId,
+            active,
             annotation,
+            onReply: active ? onReplyToActiveNote : undefined,
           };
         }
 
         return {
           id,
-          active: id === activeNoteId,
+          active,
           annotation,
           source,
           editable: true,
+          onEdit: active ? onEditActiveNote : undefined,
           onRemove: annotation.id ? () => onRemoveUserNote?.(annotation.id!) : undefined,
+          onReply: active ? onReplyToActiveNote : undefined,
         };
       });
 
@@ -408,8 +416,10 @@ export function DiffPane({
     files,
     onBlurDraftNote,
     onCancelDraftNote,
+    onEditActiveNote,
     onFocusDraftNote,
     onRemoveUserNote,
+    onReplyToActiveNote,
     onSaveDraftNote,
     onUpdateDraftNote,
     showAgentNotes,
@@ -1541,6 +1551,14 @@ export function DiffPane({
       // hunk can request a top offset that is no longer reachable once the viewport hits EOF.
       // Using the reachable value keeps the reveal logic from fighting later manual scrolling.
       if (selectedNoteBounds) {
+        const currentScrollTop = scrollBox.scrollTop ?? 0;
+        const noteTop = selectedNoteBounds.top;
+        const noteBottom = selectedNoteBounds.top + selectedNoteBounds.height;
+        const viewportBottom = currentScrollTop + viewportHeight;
+        if (noteTop >= currentScrollTop && noteBottom <= viewportBottom) {
+          return;
+        }
+
         const revealScrollTop = computeHunkRevealScrollTop({
           hunkTop: selectedNoteBounds.top,
           hunkHeight: selectedNoteBounds.height,

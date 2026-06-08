@@ -45,12 +45,14 @@ function isUppercaseGKey(key: KeyEvent) {
 export interface UseAppKeyboardShortcutsOptions {
   activeMenuId: MenuId | null;
   activateCurrentMenuItem: () => void;
+  canEditActiveNote: boolean;
   canRefreshCurrentInput: boolean;
   canReplyToActiveNote: boolean;
   closeHelp: () => void;
   closeMenu: () => void;
   cycleTheme: () => void;
   cancelDraftNote: () => void;
+  editActiveNote: () => void;
   focusArea: FocusArea;
   focusFilter: () => void;
   moveToAnnotatedHunk: (delta: number) => void;
@@ -84,12 +86,14 @@ export interface UseAppKeyboardShortcutsOptions {
 export function useAppKeyboardShortcuts({
   activeMenuId,
   activateCurrentMenuItem,
+  canEditActiveNote,
   canRefreshCurrentInput,
   canReplyToActiveNote,
   closeHelp,
   closeMenu,
   cycleTheme,
   cancelDraftNote,
+  editActiveNote,
   focusArea,
   focusFilter,
   moveToAnnotatedHunk,
@@ -446,6 +450,11 @@ export function useAppKeyboardShortcuts({
           triggerRefreshCurrentInput();
         }
       });
+      return;
+    }
+
+    if ((key.name === "e" || key.sequence === "e") && canEditActiveNote) {
+      runAndCloseMenu(editActiveNote);
       return;
     }
 

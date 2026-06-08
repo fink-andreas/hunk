@@ -180,6 +180,7 @@ export interface DraftReviewNote {
   oldRange?: [number, number];
   newRange?: [number, number];
   body: string;
+  editingNoteId?: string;
 }
 
 interface SourceLoadRequest {
@@ -192,6 +193,7 @@ interface ReviewNoteCursor {
   noteId: string;
   fileId: string;
   hunkIndex: number;
+  editable: boolean;
 }
 
 export interface ReviewSelectionOptions {
@@ -205,6 +207,7 @@ export interface ReviewController {
   allFiles: DiffFile[];
   expandedGapsByFileId: Record<string, ReadonlySet<string>>;
   filter: string;
+  activeNoteCanEdit: boolean;
   activeNoteId: string | null;
   draftNote: DraftReviewNote | null;
   liveCommentCount: number;
@@ -245,6 +248,7 @@ export interface ReviewController {
   removeLiveComment: (commentId: string) => RemovedCommentResult;
   cancelDraftNote: () => void;
   removeUserNote: (noteId: string) => void;
+  editActiveNote: () => DraftReviewNote | null;
   replyToActiveNote: () => DraftReviewNote | null;
   saveDraftNote: () => UserReviewNote | null;
   selectFile: (fileId: string, nextHunkIndex?: number, options?: ReviewSelectionOptions) => void;
@@ -343,7 +347,14 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
         (file.agent?.annotations ?? []).flatMap((annotation, index) => {
           const hunkIndex = annotationHunkIndex(file, annotation);
           return hunkIndex >= 0
-            ? [{ noteId: visibleReviewNoteId(file, annotation, index), fileId: file.id, hunkIndex }]
+            ? [
+                {
+                  noteId: visibleReviewNoteId(file, annotation, index),
+                  fileId: file.id,
+                  hunkIndex,
+                  editable: annotation.editable === true,
+                },
+              ]
             : [];
         }),
       ),
@@ -355,6 +366,9 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
       setActiveNoteId(null);
     }
   }, [activeNoteId, reviewNoteCursors]);
+
+  const activeNoteCanEdit =
+    reviewNoteCursors.find((cursor) => cursor.noteId === activeNoteId)?.editable ?? false;
 
   /** Update the active target, selection, and reveal intent together so diff scrolling stays explicit. */
   const selectHunk = useCallback(
@@ -867,6 +881,45 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
     [allFiles, selectHunk, selectedFile?.id, selectedHunkIndex],
   );
 
+  /** Start editing the active user note in the inline composer. */
+  const editActiveNote = useCallback((): DraftReviewNote | null => {
+    if (!activeNoteId) {
+      return null;
+    }
+
+    for (const file of allFiles) {
+      const note = (userNotesByFileId[file.id] ?? []).find(
+        (candidate) => visibleReviewNoteId(file, candidate, 0) === activeNoteId,
+      );
+      if (!note) {
+        continue;
+      }
+
+      const hunkIndex = note.hunkIndex ?? annotationHunkIndex(file, note);
+      if (hunkIndex < 0) {
+        return null;
+      }
+
+      const draft: DraftReviewNote = {
+        id: `draft:${file.id}:${hunkIndex}:${Date.now()}`,
+        fileId: file.id,
+        filePath: file.path,
+        hunkIndex,
+        side: note.side,
+        line: note.line,
+        oldRange: note.oldRange,
+        newRange: note.newRange,
+        body: note.summary,
+        editingNoteId: note.id,
+      };
+      setDraftNote(draft);
+      selectHunk(file.id, hunkIndex, { preserveViewport: true });
+      return draft;
+    }
+
+    return null;
+  }, [activeNoteId, allFiles, selectHunk, userNotesByFileId]);
+
   /** Start a reply draft at the active note's hunk and line anchor. */
   const replyToActiveNote = useCallback((): DraftReviewNote | null => {
     if (!activeNoteId) {
@@ -920,6 +973,31 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
       return null;
     }
 
+    if (draftNote.editingNoteId) {
+      const existingNote = (userNotesByFileId[draftNote.fileId] ?? []).find(
+        (note) => note.id === draftNote.editingNoteId,
+      );
+      if (!existingNote) {
+        setDraftNote(null);
+        return null;
+      }
+
+      const updatedNote: UserReviewNote = {
+        ...existingNote,
+        summary: body,
+        updatedAt: new Date().toISOString(),
+      };
+      setUserNotesByFileId((notesByFile) => ({
+        ...notesByFile,
+        [draftNote.fileId]: (notesByFile[draftNote.fileId] ?? []).map((note) =>
+          note.id === draftNote.editingNoteId ? updatedNote : note,
+        ),
+      }));
+      setActiveNoteId(`annotation:${draftNote.fileId}:${draftNote.editingNoteId}`);
+      setDraftNote(null);
+      return updatedNote;
+    }
+
     const savedNote: UserReviewNote = {
       id: `user:${Date.now()}`,
       source: "user",
@@ -942,7 +1020,7 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
     setActiveNoteId(`annotation:${draftNote.fileId}:${savedNote.id}`);
     setDraftNote(null);
     return savedNote;
-  }, [draftNote]);
+  }, [draftNote, userNotesByFileId]);
 
   /** Remove one in-memory user note by id. */
   const removeUserNote = useCallback(
@@ -1056,6 +1134,7 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
 
   return {
     allFiles,
+    activeNoteCanEdit,
     activeNoteId,
     draftNote,
     expandedGapsByFileId,
@@ -1087,6 +1166,7 @@ export function useReviewController({ files }: { files: DiffFile[] }): ReviewCon
     moveToAnnotatedHunk,
     moveToFile,
     moveToHunk,
+    editActiveNote,
     navigateToLocation,
     removeLiveComment,
     removeUserNote,

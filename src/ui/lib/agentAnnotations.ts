@@ -18,7 +18,9 @@ export interface VisibleAgentNote {
     onInput: (value: string) => void;
     onSave: () => void;
   };
+  onEdit?: () => void;
   onRemove?: () => void;
+  onReply?: () => void;
 }
 
 export interface AnnotationAnchor {

@@ -125,6 +125,8 @@ export function AgentInlineNote({
   active = false,
   draft,
   onClose,
+  onEdit,
+  onReply,
   theme,
   width,
 }: {
@@ -145,6 +147,8 @@ export function AgentInlineNote({
     onSave: () => void;
   };
   onClose?: () => void;
+  onEdit?: () => void;
+  onReply?: () => void;
   theme: AppTheme;
   width: number;
 }) {
@@ -268,7 +272,11 @@ export function AgentInlineNote({
     boxWidth - 3 - savedTitleText.length - closeGapWidth - closeWidth,
   );
   const savedTopPrefixWidth = 2 + savedTitleText.length + savedTopBorderSuffixWidth;
-  const bottomBorderAction = " [ Reply (r) ] ";
+  const replyButtonText = "[ Reply (r) ]";
+  const editButtonText = "[ Edit (e) ]";
+  const bottomBorderAction = annotation.editable
+    ? ` ${replyButtonText} ${editButtonText} `
+    : ` ${replyButtonText} `;
   const bottomBorderActionFits = active && boxWidth - 2 >= bottomBorderAction.length + 2;
   const bottomBorderLeftWidth = bottomBorderActionFits
     ? Math.max(1, boxWidth - 2 - bottomBorderAction.length - 1)
@@ -276,9 +284,7 @@ export function AgentInlineNote({
   const bottomBorderRightWidth = bottomBorderActionFits
     ? Math.max(0, boxWidth - 2 - bottomBorderAction.length - bottomBorderLeftWidth)
     : 0;
-  const bottomBorder = `╰${"─".repeat(bottomBorderLeftWidth)}${
-    bottomBorderActionFits ? bottomBorderAction : ""
-  }${"─".repeat(bottomBorderRightWidth)}╯`;
+  const bottomBorder = `╰${"─".repeat(Math.max(0, boxWidth - 2))}╯`;
   const savedBorderColor = theme.noteBorder;
   const savedHeaderBackground = theme.panel;
 
@@ -601,11 +607,78 @@ export function AgentInlineNote({
         <box style={{ width: boxLeft, height: 1, backgroundColor: theme.panel }}>
           <text>{" ".repeat(boxLeft)}</text>
         </box>
-        <box style={{ width: boxWidth, height: 1, backgroundColor: theme.panel }}>
-          <text fg={savedBorderColor} bg={theme.panel}>
-            {bottomBorder}
-          </text>
-        </box>
+        {bottomBorderActionFits ? (
+          <box
+            style={{
+              width: boxWidth,
+              height: 1,
+              flexDirection: "row",
+              backgroundColor: theme.panel,
+            }}
+          >
+            <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+              <text fg={savedBorderColor} bg={theme.panel}>
+                ╰
+              </text>
+            </box>
+            <box style={{ width: bottomBorderLeftWidth, height: 1, backgroundColor: theme.panel }}>
+              <text fg={savedBorderColor} bg={theme.panel}>
+                {"─".repeat(bottomBorderLeftWidth)}
+              </text>
+            </box>
+            <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+              <text fg={savedBorderColor} bg={theme.panel}>
+                {" "}
+              </text>
+            </box>
+            <box
+              onMouseUp={onReply}
+              style={{ width: replyButtonText.length, height: 1, backgroundColor: theme.panel }}
+            >
+              <text fg={theme.noteTitleText} bg={theme.panel}>
+                {replyButtonText}
+              </text>
+            </box>
+            {annotation.editable ? (
+              <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+                <text fg={savedBorderColor} bg={theme.panel}>
+                  {" "}
+                </text>
+              </box>
+            ) : null}
+            {annotation.editable ? (
+              <box
+                onMouseUp={onEdit}
+                style={{ width: editButtonText.length, height: 1, backgroundColor: theme.panel }}
+              >
+                <text fg={theme.noteTitleText} bg={theme.panel}>
+                  {editButtonText}
+                </text>
+              </box>
+            ) : null}
+            <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+              <text fg={savedBorderColor} bg={theme.panel}>
+                {" "}
+              </text>
+            </box>
+            <box style={{ width: bottomBorderRightWidth, height: 1, backgroundColor: theme.panel }}>
+              <text fg={savedBorderColor} bg={theme.panel}>
+                {"─".repeat(bottomBorderRightWidth)}
+              </text>
+            </box>
+            <box style={{ width: 1, height: 1, backgroundColor: theme.panel }}>
+              <text fg={savedBorderColor} bg={theme.panel}>
+                ╯
+              </text>
+            </box>
+          </box>
+        ) : (
+          <box style={{ width: boxWidth, height: 1, backgroundColor: theme.panel }}>
+            <text fg={savedBorderColor} bg={theme.panel}>
+              {bottomBorder}
+            </text>
+          </box>
+        )}
       </box>
     </box>
   );
