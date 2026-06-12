@@ -14,6 +14,7 @@ const VIEWPORT = {
   height: 28,
 } as const;
 const SCROLL_TICKS = 4;
+const VIEWPORT_READ_COALESCE_MS = 16;
 const SCROLL_TARGET = {
   x: 170,
   y: 12,
@@ -61,6 +62,11 @@ async function renderPass(setup: BenchmarkRenderer, passes = 1) {
   }
 }
 
+/** Lets DiffPane's timer-coalesced viewport read update React state. */
+async function flushCoalescedViewportRead() {
+  await Bun.sleep(VIEWPORT_READ_COALESCE_MS + 1);
+}
+
 async function flushSelectedHighlight(setup: BenchmarkRenderer) {
   for (let iteration = 0; iteration < 200; iteration += 1) {
     await renderPass(setup);
@@ -97,6 +103,7 @@ async function measureScrollTicksMs() {
 
     for (let index = 0; index < SCROLL_TICKS; index += 1) {
       setup.mockMouse.scroll(SCROLL_TARGET.x, SCROLL_TARGET.y, "down");
+      await flushCoalescedViewportRead();
       await setup.renderOnce();
     }
 
